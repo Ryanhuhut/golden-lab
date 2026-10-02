@@ -1,0 +1,9 @@
+{
+  "name": "golden-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "preview:build": "node scripts/build-standalone.mjs"
+  }
+}

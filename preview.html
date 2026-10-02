@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <meta name="description" content="Golden Lab — an interactive laboratory for Fibonacci and the golden angle.">
+  <title>GOLDEN LAB — Mathematical Motion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+:root{--bg:#050505;--panel:#0b0b0b;--panel-raised:#10100e;--text:#f1efe9;--muted:#85837b;--line:#26241f;--gold:#d8a84e;--gold-bright:#f3cf78;--glow-strength:.42;--mono:'DM Mono',monospace;--sans:Manrope,Arial,sans-serif;color-scheme:dark}
+
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);min-width:320px}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold-bright);outline-offset:4px}
+::selection{background:#a47c33;color:#fff}
+
+.app-shell{min-height:100svh;position:relative;overflow:hidden}
+.overview{max-width:1600px;margin:auto;padding:42px clamp(24px,5vw,90px) 75px;transition:opacity .45s,filter .45s,transform .65s cubic-bezier(.2,.75,.2,1)}
+.overview.dimmed{opacity:.12;filter:blur(5px);transform:scale(.965);pointer-events:none}
+.topline{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:22px;color:var(--muted);font:11px var(--mono);letter-spacing:.16em}
+.brand{color:var(--text);font-family:var(--sans);font-weight:800;letter-spacing:.24em;font-size:13px}
+.brand span{color:var(--gold)}
+.hero{display:flex;align-items:end;justify-content:space-between;gap:35px;padding:clamp(55px,7vw,104px) 0 52px}
+.eyebrow{font:11px var(--mono);letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+.hero h1{font-size:clamp(58px,8vw,128px);line-height:.92;letter-spacing:-.085em;margin:20px 0 0;font-weight:600}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero p{max-width:310px;color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 6px}
+.gallery-head{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:18px 0 22px;color:var(--muted);font:11px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.experiment-card{position:relative;text-align:left;overflow:hidden;padding:0;border:1px solid #24231f;border-radius:3px;background:#0a0a09;color:var(--text);min-height:clamp(310px,29vw,445px);transition:transform .6s cubic-bezier(.2,.8,.2,1),border-color .5s,box-shadow .5s;isolation:isolate}
+.experiment-card:hover,.experiment-card:focus-visible{transform:scale(1.018);border-color:#665332;box-shadow:0 12px 60px rgba(186,131,42,.07)}
+.card-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.85}
+.experiment-card:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(0,0,0,.64) 75%,#080808 100%);pointer-events:none}
+.card-index{position:absolute;z-index:1;top:24px;left:26px;color:var(--gold);font:11px var(--mono);letter-spacing:.15em}
+.card-symbol{position:absolute;z-index:1;top:20px;right:26px;color:#cbaa66;font:30px Georgia,serif}
+.card-info{position:absolute;z-index:1;bottom:25px;left:27px;right:27px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px}
+.card-info h2{font-size:clamp(25px,2.7vw,39px);letter-spacing:-.055em;font-weight:500;margin:0 0 7px}
+.card-info p{color:#97938a;font-size:12px;margin:0}
+.open-hint{color:var(--gold);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.open-hint span{display:inline-block;transition:transform .3s}
+.experiment-card:hover .open-hint span{transform:translateX(5px)}
+.footer{display:flex;justify-content:space-between;margin-top:28px;color:#77746d;font:10px var(--mono);letter-spacing:.1em}
+
+.workspace{position:fixed;inset:0;z-index:10;background:var(--bg);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .42s,visibility .42s}
+.workspace.visible{opacity:1;visibility:visible;pointer-events:auto}
+.workspace-frame{height:100%;display:flex;flex-direction:column;padding:24px clamp(22px,3vw,50px) 28px}
+.workspace-top{display:flex;align-items:center;justify-content:space-between;min-height:47px;border-bottom:1px solid var(--line);padding-bottom:17px}
+.back-button{border:0;background:none;color:var(--text);font:11px var(--mono);letter-spacing:.13em;text-transform:uppercase;padding:12px 0}
+.back-button span{color:var(--gold);font-size:17px;margin-right:12px;vertical-align:-1px}
+.workspace-counter{font:10px var(--mono);color:var(--muted);letter-spacing:.13em}
+.workspace-body{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:clamp(20px,2.4vw,42px);padding-top:25px}
+.stage{position:relative;min-height:0;overflow:hidden;background:#050505;border:1px solid #1d1c19}
+.stage canvas{display:block;width:100%;height:100%}
+.stage-label{position:absolute;left:22px;bottom:19px;color:#8e8b81;font:10px var(--mono);letter-spacing:.12em;pointer-events:none}
+.stage-top-label{position:absolute;top:20px;left:22px;color:var(--gold);font:10px var(--mono);letter-spacing:.15em;pointer-events:none}
+.control-panel{overflow:auto;min-height:0;padding:0 5px 20px 0;scrollbar-width:thin;scrollbar-color:#40392c transparent}
+.panel-kicker{font:10px var(--mono);color:var(--gold);letter-spacing:.18em;text-transform:uppercase;margin:5px 0 13px}
+.panel-title{font-size:33px;line-height:1.06;font-weight:500;letter-spacing:-.06em;margin:0}
+.panel-description{font-size:12px;line-height:1.65;color:var(--muted);margin:13px 0 27px}
+.control-section{border-top:1px solid var(--line);padding-top:22px;margin-top:22px}
+.section-label{font:10px var(--mono);color:var(--gold);letter-spacing:.15em;text-transform:uppercase;margin-bottom:20px}
+.control{display:block;margin:0 0 20px}
+.control-label{display:block;color:#bcb9b1;font-size:12px;font-weight:600;letter-spacing:.02em}
+.control-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.control-value{font:11px var(--mono);color:var(--gold)}
+input[type=range]{width:100%;height:20px;appearance:none;background:transparent;cursor:pointer;margin:0;touch-action:none}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:#4b4538}
+input[type=range]::-moz-range-track{height:2px;background:#4b4538}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;margin-top:-5px;border-radius:50%;background:var(--gold-bright);box-shadow:0 0 9px #d5a54a70}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:var(--gold-bright)}
+.number-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.number-row input{min-width:0;flex:1;height:35px;border:1px solid #35322b;border-radius:2px;background:#10100e;color:var(--text);text-align:center;font:13px var(--mono)}
+.number-row input::-webkit-inner-spin-button{appearance:none}
+.unit{font:11px var(--mono);color:var(--muted)}
+.button{background:#12110f;border:1px solid #363126;border-radius:2px;color:var(--text);padding:11px 13px;font:11px var(--mono);letter-spacing:.04em;transition:transform .18s,background .2s,border-color .2s,box-shadow .2s}
+.button:hover{background:#221d13;border-color:#8b6a36}
+.button:active{transform:scale(.96)}
+.button.primary{background:#a9782d;color:#090909;border-color:#d8a84e;font-weight:500}
+.button.primary:hover{background:#d6a653}
+.square-button{width:36px;height:35px;padding:0;font-size:17px}
+.actions{display:flex;gap:7px;flex-wrap:wrap}
+.actions .button{flex:1;min-width:65px}
+.toggle-control{display:flex;align-items:center;justify-content:space-between;color:#bcb9b1;font-size:12px;cursor:pointer;margin:0 0 15px}
+.toggle-control input{position:absolute;opacity:0}
+.toggle-track{width:31px;height:17px;border-radius:20px;background:#322f28;border:1px solid #504635;position:relative;transition:background .2s}
+.toggle-track:after{content:'';width:9px;height:9px;border-radius:50%;background:#b7aa91;position:absolute;left:3px;top:3px;transition:transform .2s,background .2s}
+.toggle-control input:checked+.toggle-track{background:#88652f}
+.toggle-control input:checked+.toggle-track:after{background:#ffe2a0;transform:translateX(14px)}
+.toggle-control input:focus-visible+.toggle-track{outline:2px solid var(--gold);outline-offset:3px}
+
+.angle-control{margin:17px 0 30px;--angle-glow:0}
+.angle-readout{font:16px var(--mono);color:var(--gold-bright);font-variant-numeric:tabular-nums}
+.angle-track-area{position:relative;height:44px;touch-action:none;cursor:ew-resize}
+.angle-track{position:absolute;top:21px;left:0;right:0;height:3px;background:#39352d}
+.angle-active{height:100%;background:var(--gold);box-shadow:0 0 calc(4px + var(--angle-glow)*17px) rgba(240,188,74,.65)}
+.angle-thumb{position:absolute;top:50%;width:15px;height:15px;border:2px solid var(--gold-bright);border-radius:50%;background:#17130b;transform:translate(-50%,-50%);box-shadow:0 0 calc(5px + var(--angle-glow)*25px) rgba(240,186,68,.78)}
+.golden-marker{position:absolute;top:0;transform:translateX(-50%);border:0;background:transparent;color:var(--gold-bright);width:26px;height:20px;font:18px Georgia,serif;z-index:2;padding:0;text-shadow:0 0 calc(5px + var(--angle-glow)*20px) #dca944}
+.golden-marker:after{content:'';position:absolute;top:21px;height:7px;width:1px;left:50%;background:var(--gold)}
+.angle-endpoints{display:flex;justify-content:space-between;position:relative;color:#706d65;font:9px var(--mono)}
+.golden-caption{position:absolute;top:0;transform:translateX(-50%);color:var(--gold);font-size:8px;white-space:nowrap}
+.angle-control.at-golden .angle-readout{color:#ffe29c}
+.golden-status{min-height:18px;color:var(--gold);font:10px var(--mono);letter-spacing:.1em}
+.debug{position:absolute;top:20px;right:20px;z-index:2;color:#d7c394;font:10px/1.5 var(--mono);white-space:pre;text-align:right;pointer-events:none}
+
+.mechanics-body{overflow-y:auto;display:block;padding-right:4px}
+.mechanics-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:clamp(20px,2.4vw,42px);min-height:650px;height:calc(100% - 12px)}
+.mechanics-stage{overflow-y:auto;background:#070707;border:1px solid #201e19;padding:24px clamp(20px,4vw,64px) 38px;scrollbar-width:thin;scrollbar-color:#40392c transparent}
+.mechanics-stage h3{font-size:12px;color:var(--gold);font-weight:500;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:0}
+.mechanics-roller-section{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,1fr);align-items:center;gap:30px;min-height:390px}
+.wheel-wrap{position:relative;height:310px;overflow:hidden;touch-action:none;cursor:grab;user-select:none;outline:none;mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.wheel-wrap:active{cursor:grabbing}
+.wheel-items{position:absolute;inset:0}
+.wheel-item{position:absolute;left:0;right:0;top:50%;height:48px;display:flex;align-items:center;justify-content:center;color:var(--text);font:clamp(16px,2.2vw,28px) var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;will-change:transform,opacity}
+.wheel-item.active{color:var(--gold-bright)}
+.wheel-center{position:absolute;left:0;right:0;top:50%;height:56px;transform:translateY(-50%);border-top:1px solid #806536;border-bottom:1px solid #806536;pointer-events:none;box-shadow:0 0 30px #c6972c11}
+.wheel-center:before,.wheel-center:after{content:'';position:absolute;width:5px;height:5px;top:25px;background:var(--gold);transform:rotate(45deg)}
+.wheel-center:before{left:4px}
+.wheel-center:after{right:4px}
+.ratio-display{text-align:center}
+.ratio-label{font:10px var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.ratio-fraction{font:clamp(20px,2.5vw,35px) var(--mono);letter-spacing:-.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:20px auto 10px;max-width:100%;color:#e9e0d0}
+.ratio-value{font:clamp(22px,3vw,44px) var(--mono);color:var(--gold-bright);text-shadow:0 0 calc(var(--ratio-glow,0)*22px) #d5a24488}
+.phi-reference{font:11px var(--mono);color:#9a8561;margin-top:16px;text-shadow:0 0 calc(var(--ratio-glow,0)*18px) #daac5088}
+.ratio-note{font:10px/1.6 var(--mono);color:var(--muted);margin-top:20px}
+.recurrence-section{border-top:1px solid var(--line);padding-top:25px}
+.equation-stage{height:175px;display:flex;align-items:center;justify-content:center;gap:clamp(7px,2vw,25px);overflow:hidden}
+.eq-slot{min-width:0;max-width:32%;font:clamp(20px,3.3vw,48px) var(--mono);color:var(--text);white-space:nowrap;text-overflow:ellipsis;overflow:hidden;transition:color .3s;text-align:center}
+.eq-slot.result{color:var(--gold-bright)}
+.eq-operator{font:clamp(20px,2.7vw,36px) var(--mono);color:#777167}
+.eq-slot.enter-forward{animation:eqForward .5s cubic-bezier(.18,.8,.25,1)}
+.eq-slot.enter-backward{animation:eqBackward .5s cubic-bezier(.18,.8,.25,1)}
+@keyframes eqForward{from{opacity:.25;transform:translateY(22px) scale(.88)}
+to{opacity:1;transform:none}
+}
+@keyframes eqBackward{from{opacity:.25;transform:translateY(-22px) scale(.88)}
+to{opacity:1;transform:none}
+}
+.recurrence-caption{text-align:center;color:var(--muted);font:10px var(--mono);letter-spacing:.1em}
+
+.transition-rect{position:fixed;z-index:30;pointer-events:none;display:flex;align-items:end;padding:clamp(24px,4vw,65px);background-color:#0b0b09;background-size:cover;background-position:center;border:1px solid #685632;box-shadow:0 0 80px #bd913219;transform-origin:top left;color:#f1e7d5;font-size:clamp(24px,4vw,65px);font-weight:500;letter-spacing:-.06em;overflow:hidden}
+.hidden{display:none!important}
+
+@media(max-width:900px){.workspace{overflow-y:auto}
+.workspace-frame{min-height:100svh;height:auto}
+.workspace-body{display:flex;flex-direction:column;overflow:visible}
+.stage{height:min(60vh,560px);flex:none}
+.control-panel{overflow:visible;padding-bottom:36px}
+.mechanics-layout{display:flex;flex-direction:column;height:auto;min-height:0}
+.mechanics-stage{overflow:visible}
+.mechanics-body{overflow:visible}
+}
+
+@media(max-width:650px){.overview{padding:23px 18px 45px}
+.topline{font-size:9px}
+.hero{display:block;padding:56px 0 35px}
+.hero h1{font-size:clamp(58px,15vw,86px)}
+.hero p{margin-top:25px}
+.gallery{grid-template-columns:1fr;gap:13px}
+.experiment-card{min-height:300px}
+.card-info h2{font-size:30px}
+.open-hint{font-size:9px}
+.footer{font-size:8px}
+.workspace-frame{padding:16px 15px 25px}
+.workspace-body{gap:24px;padding-top:17px}
+.stage{height:48vh;min-height:280px}
+.panel-title{font-size:29px}
+.mechanics-stage{padding:22px 14px}
+.mechanics-roller-section{display:block}
+.wheel-wrap{height:285px;margin:12px auto;max-width:320px}
+.ratio-display{padding:16px 0 30px}
+.equation-stage{height:130px;gap:6px}
+.eq-slot{font-size:clamp(17px,5vw,29px)}
+.golden-caption{font-size:7px}
+}
+
+@media(prefers-reduced-motion:reduce){.experiment-card,.overview,.workspace,.button{transition-duration:.12s!important}
+.eq-slot.enter-forward,.eq-slot.enter-backward{animation-duration:.14s}
+}
+
+.mechanics-body{display:grid}
+
+.mechanics-body .stage{display:none}
+
+.equation-stage{position:relative}
+
+.debug{position:fixed}
+
+.angle-control.pulse .golden-marker{animation:goldenBeat .75s ease-out}
+
+@keyframes goldenBeat{0%{filter:drop-shadow(0 0 0 #f3cf78)}
+35%{filter:drop-shadow(0 0 13px #f3cf78)}
+100%{filter:drop-shadow(0 0 0 #f3cf78)}
+}
+
+@media(prefers-reduced-motion:reduce){.angle-control.pulse .golden-marker{animation:none}
+}
+
+@media(max-width:900px){.mechanics-body{display:flex;flex-direction:column}
+.mechanics-stage{flex:none}
+}
+
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+// src/core/animation.js
+const GOLDEN_ANGLE = 137.5;
+const PHI = (1 + Math.sqrt(5)) / 2;
+const TAU = Math.PI * 2;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOutCubic = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+const easeOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10*t);
+const smoothstep = (a, b, x) => { const t = clamp((x-a)/(b-a), 0, 1); return t*t*(3-2*t); };
+
+// Semi-implicit spring integration. Velocities are in units per second.
+function springValue(state, target, dt, frequency = 5, damping = 1) {
+  const omega = 2 * Math.PI * frequency;
+  const acceleration = (target - state.value) * omega * omega - 2 * damping * omega * state.velocity;
+  state.velocity += acceleration * dt;
+  state.value += state.velocity * dt;
+  if (Math.abs(target-state.value) < 0.0001 && Math.abs(state.velocity) < 0.0001) {
+    state.value = target; state.velocity = 0;
+  }
+  return state.value;
+}
+
+function smoothDamp(current, target, velocity, smoothTime, dt) {
+  const omega = 2 / Math.max(.001, smoothTime);
+  const x = omega * dt;
+  const decay = 1 / (1 + x + .48*x*x + .235*x*x*x);
+  const change = current - target;
+  const temp = (velocity + omega*change)*dt;
+  return { value: target + (change + temp)*decay, velocity: (velocity - omega*temp)*decay };
+}
+
+function animateValue(state, target, dt, time = .28) {
+  const next = smoothDamp(state.value, target, state.velocity, reducedMotion ? .06 : time, dt);
+  state.value = next.value; state.velocity = next.velocity;
+  if (Math.abs(state.value-target) < .0001 && Math.abs(state.velocity) < .0001) { state.value=target; state.velocity=0; }
+  return state.value;
+}
+
+function loop(callback) {
+  let previous = performance.now(), frame = 0;
+  function tick(now) {
+    const dt = Math.min((now-previous)/1000, .033);
+    previous = now;
+    if (!document.hidden) callback(dt, now/1000, frame++);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+
+// src/core/canvas.js
+function canvasSurface(canvas) {
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let width = 0, height = 0, ratio = 1;
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.max(1, Math.round(rect.width*dpr));
+    const h = Math.max(1, Math.round(rect.height*dpr));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width=w; canvas.height=h; }
+    width=rect.width; height=rect.height; ratio=dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx,width,height,ratio};
+  }
+  return { ctx, resize, get width(){return width}, get height(){return height} };
+}
+
+function clear(ctx,w,h) { ctx.fillStyle='#050505'; ctx.fillRect(0,0,w,h); }
+function grid(ctx,w,h, spacing=48) {
+  ctx.save(); ctx.strokeStyle='rgba(255,255,255,.032)'; ctx.lineWidth=1;
+  for(let x=w/2%spacing; x<w; x+=spacing){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  for(let y=h/2%spacing; y<h; y+=spacing){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  ctx.restore();
+}
+
+
+// src/ui/controls.js
+
+function section(label) { const el=document.createElement('div'); el.className='control-section'; el.innerHTML=`<div class="section-label">${label}</div>`; return el; }
+function button(label, handler, className='') { const b=document.createElement('button'); b.type='button'; b.className=`button ${className}`; b.textContent=label; b.addEventListener('click',handler); return b; }
+function actions(items) { const row=document.createElement('div'); row.className='actions'; items.forEach(([label, fn, cls])=>row.append(button(label,fn,cls||''))); return row; }
+function numberControl(label, value, min, max, step, onChange, unit='') {
+  const wrap=document.createElement('div'); wrap.className='control';
+  const title=document.createElement('label'); title.className='control-label'; title.textContent=label;
+  const row=document.createElement('div'); row.className='number-row';
+  const minus=button('−',()=>commit(Number(input.value)-step),'square-button'); minus.setAttribute('aria-label',`Decrease ${label}`);
+  const input=document.createElement('input'); input.type='number'; input.min=min; input.max=max; input.step=step; input.value=value; input.setAttribute('aria-label',label);
+  const plus=button('+',()=>commit(Number(input.value)+step),'square-button'); plus.setAttribute('aria-label',`Increase ${label}`);
+  const suffix=document.createElement('span'); suffix.className='unit'; suffix.textContent=unit;
+  function commit(raw){const safe=Number.isFinite(raw)?raw:value; value=clamp(Math.round(safe/step)*step,min,max); input.value=step<1?value.toFixed(1):value; onChange(value);}
+  input.addEventListener('change',()=>commit(Number(input.value))); input.addEventListener('blur',()=>commit(Number(input.value)));
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){commit(Number(input.value));input.blur()}});
+  row.append(minus,input,suffix,plus); wrap.append(title,row);
+  return {el:wrap,set(v){value=v;input.value=step<1?v.toFixed(1):v}};
+}
+function rangeControl(label,value,min,max,step,onChange,formatter=v=>String(v)) {
+  const wrap=document.createElement('label'); wrap.className='control';
+  const top=document.createElement('span'); top.className='control-top';
+  const name=document.createElement('span'); name.className='control-label'; name.textContent=label;
+  const readout=document.createElement('span'); readout.className='control-value'; readout.textContent=formatter(value);
+  const input=document.createElement('input'); input.type='range'; input.min=min;input.max=max;input.step=step;input.value=value;input.setAttribute('aria-label',label);
+  input.addEventListener('input',()=>{const v=clamp(Number(input.value),min,max);readout.textContent=formatter(v);onChange(v)});
+  top.append(name,readout);wrap.append(top,input);
+  return {el:wrap,set(v){input.value=v;readout.textContent=formatter(v)}};
+}
+function toggleControl(label,value,onChange){
+  const wrap=document.createElement('label'); wrap.className='toggle-control'; const text=document.createElement('span');text.textContent=label;
+  const input=document.createElement('input');input.type='checkbox';input.checked=value;input.addEventListener('change',()=>onChange(input.checked));
+  const slider=document.createElement('span');slider.className='toggle-track';wrap.append(text,input,slider);return {el:wrap,set(v){input.checked=v}};
+}
+
+
+// src/ui/slider.js
+
+function angleSlider(label, state) {
+  const root=document.createElement('div');root.className='angle-control';
+  root.innerHTML=`<div class="control-top"><span class="control-label">${label}</span><span class="angle-readout">${(state.currentAngle??state.angle).toFixed(1)}°</span></div>
+    <div class="angle-track-area"><div class="angle-track"><div class="angle-active"></div><div class="angle-thumb"></div></div><button type="button" class="golden-marker" aria-label="Animate to Golden Angle, 137.5 degrees"><span>φ</span></button></div>
+    <div class="angle-endpoints"><span>0.0°</span><span class="golden-caption">137.5° · GOLDEN ANGLE</span><span>360.0°</span></div>`;
+  const area=root.querySelector('.angle-track-area'), active=root.querySelector('.angle-active'), thumb=root.querySelector('.angle-thumb'), marker=root.querySelector('.golden-marker'), readout=root.querySelector('.angle-readout');
+  marker.style.left=`${GOLDEN_ANGLE/360*100}%`;
+  root.querySelector('.golden-caption').style.left=`${GOLDEN_ANGLE/360*100}%`;
+  let dragging=false;
+  function setFromPointer(e){const rect=area.getBoundingClientRect();state.targetAngle=Math.round(clamp((e.clientX-rect.left)/rect.width,0,1)*3600)/10;}
+  area.addEventListener('pointerdown',e=>{if(e.target.closest('.golden-marker'))return;dragging=true;area.setPointerCapture(e.pointerId);setFromPointer(e)});
+  area.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
+  area.addEventListener('pointerup',()=>dragging=false);area.addEventListener('pointercancel',()=>dragging=false);
+  marker.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);
+  area.tabIndex=0;area.setAttribute('role','slider');area.setAttribute('aria-label',label);area.setAttribute('aria-valuemin','0');area.setAttribute('aria-valuemax','360');
+  area.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowDown','ArrowRight','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const d=(e.key==='ArrowRight'||e.key==='ArrowUp')?1:-1;state.targetAngle=e.key==='Home'?0:e.key==='End'?360:clamp(Math.round((state.targetAngle+d*.1)*10)/10,0,360)}});
+  let wasGolden=false;root.addEventListener('animationend',()=>root.classList.remove('pulse'));
+  return {el:root,update(glow){const value=state.currentAngle??state.angle;const pct=value/360*100;active.style.width=`${pct}%`;thumb.style.left=`${pct}%`;readout.textContent=`${value.toFixed(1)}°`;area.setAttribute('aria-valuenow',value.toFixed(1));area.setAttribute('aria-valuetext',`${value.toFixed(1)} degrees`);root.style.setProperty('--angle-glow',glow.toFixed(3));const atGolden=Math.abs(value-GOLDEN_ANGLE)<.055;root.classList.toggle('at-golden',atGolden);if(atGolden&&!wasGolden)root.classList.add('pulse');wasGolden=atGolden}};
+}
+
+
+// src/state.js
+
+const DEBUG = new URLSearchParams(location.search).has('debug');
+const state = {
+  fibonacci:{steps:12,speed:1,lineWidth:1.5,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:true,playing:true,progress:0},
+  phyllotaxis:{points:700,angle:GOLDEN_ANGLE,targetAngle:GOLDEN_ANGLE,angleVelocity:0,spacing:7.5,dotSize:2.6,speed:1,glow:.55,flicker:.15,playing:true,progress:0},
+  petals:{petalCount:15,currentCount:15,targetCount:15,currentAngle:120,targetAngle:120,angleVelocity:0,petalLength:190,petalWidth:34,centerRadius:17,glow:.45,speed:1,playing:true,rotation:0,goldenPulse:0},
+  mechanics:{position:11,velocity:0,activeIndex:11,playing:false,speed:1,autoTimer:0,manualUntil:0}
+};
+
+
+// src/ui/overview.js
+const experiments = [
+  {id:'fibonacci',index:'01',name:'Fibonacci Growth',description:'A sequence becomes a living structure.',symbol:'𝑭'},
+  {id:'phyllotaxis',index:'02',name:'Golden Phyllotaxis',description:'Order emerging from a single angle.',symbol:'φ'},
+  {id:'petals',index:'03',name:'Golden Petals',description:'A flower shaped by rotation.',symbol:'✳'},
+  {id:'mechanics',index:'04',name:'Fibonacci Mechanics',description:'A sequence tending toward φ.',symbol:'∞'}
+];
+function createOverview(open) {
+  const overview=document.createElement('main');overview.className='overview';overview.innerHTML=`
+    <header class="topline"><div class="brand">GOLDEN <span>LAB</span></div><div>INTERACTIVE MATHEMATICS / VOL. 01</div></header>
+    <section class="hero"><div><div class="eyebrow">A visual laboratory of proportion</div><h1>Numbers<br>in <em>motion.</em></h1></div><p>Four experiments. One recurring idea. Explore the structures that emerge when a simple rule is allowed to move.</p></section>
+    <div class="gallery-head"><span>SELECT AN EXPERIMENT</span><span>01 — 04</span></div><div class="gallery"></div>
+    <footer class="footer"><span>GOLDEN LAB / EST. 2026</span><span>SCROLL · SELECT · EXPLORE</span></footer>`;
+  const gallery=overview.querySelector('.gallery');const canvases={};
+  for(const item of experiments){const card=document.createElement('button');card.className='experiment-card';card.type='button';card.setAttribute('aria-label',`Open ${item.name}`);card.innerHTML=`<canvas class="card-canvas" aria-hidden="true"></canvas><span class="card-index">EXPERIMENT ${item.index}</span><span class="card-symbol">${item.symbol}</span><span class="card-info"><span><h2>${item.name}</h2><p>${item.description}</p></span><span class="open-hint">OPEN EXPERIMENT <span>↗</span></span></span>`;card.addEventListener('click',()=>open(item.id,card));gallery.append(card);canvases[item.id]=card.querySelector('canvas');}
+  return {el:overview,canvases};
+}
+
+
+// src/ui/workspace.js
+
+function createWorkspace(back) {
+  const root=document.createElement('section');root.className='workspace';root.setAttribute('aria-hidden','true');
+  root.innerHTML=`<div class="workspace-frame"><div class="workspace-top"><button class="back-button" aria-label="Back to experiments"><span>←</span> BACK TO EXPERIMENTS</button><div class="workspace-counter">GOLDEN LAB / <span>01</span> OF 04</div></div><div class="workspace-body"><div class="stage"><canvas></canvas><span class="stage-top-label"></span><span class="stage-label">INTERACTIVE STUDY / GOLDEN LAB</span></div><aside class="control-panel"></aside></div></div>`;
+  root.querySelector('.back-button').addEventListener('click',back);
+  const body=root.querySelector('.workspace-body'),stage=root.querySelector('.stage'),panel=root.querySelector('.control-panel');
+  return {el:root,body,stage,canvas:stage.querySelector('canvas'),panel,setExperiment(id){const item=experiments.find(x=>x.id===id);root.querySelector('.workspace-counter span').textContent=item.index;root.querySelector('.stage-top-label').textContent=`${item.index} / ${item.name.toUpperCase()}`;panel.innerHTML=`<div class="panel-kicker">EXPERIMENT ${item.index} / 04</div><h2 class="panel-title">${item.name}</h2><p class="panel-description">${item.description}</p>`;}};
+}
+
+
+// src/experiments/fibonacci.js
+
+
+
+function buildSquares(count){
+  const values=[1n,1n];for(let i=2;i<count;i++)values.push(values[i-1]+values[i-2]);
+  const squares=[];let bounds={minX:0,minY:0,maxX:1,maxY:1};
+  for(let i=0;i<count;i++){
+    const size=Number(values[i]);let x=0,y=0,dir='seed';
+    if(i>0){dir=['right','up','left','down'][(i-1)%4];
+      if(dir==='right'){x=bounds.maxX;y=bounds.minY}
+      if(dir==='up'){x=bounds.minX;y=bounds.minY-size}
+      if(dir==='left'){x=bounds.minX-size;y=bounds.minY}
+      if(dir==='down'){x=bounds.minX;y=bounds.maxY}
+    }
+    squares.push({x,y,size,dir,value:values[i]});
+    bounds={minX:Math.min(bounds.minX,x),minY:Math.min(bounds.minY,y),maxX:Math.max(bounds.maxX,x+size),maxY:Math.max(bounds.maxY,y+size)};
+  }
+  return squares;
+}
+function extent(squares,visible){let b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};for(let i=0;i<visible;i++){const s=squares[i];b.minX=Math.min(b.minX,s.x);b.minY=Math.min(b.minY,s.y);b.maxX=Math.max(b.maxX,s.x+s.size);b.maxY=Math.max(b.maxY,s.y+s.size)}return b;}
+function arcData(s){
+  const {x,y,size:r,dir}=s;
+  if(dir==='seed')return {cx:x,cy:y+r,start:-Math.PI/2,end:0};
+  if(dir==='right')return {cx:x,cy:y,start:Math.PI/2,end:0};
+  if(dir==='up')return {cx:x,cy:y+r,start:0,end:-Math.PI/2};
+  if(dir==='left')return {cx:x+r,cy:y+r,start:-Math.PI/2,end:-Math.PI};
+  return {cx:x+r,cy:y,start:Math.PI,end:Math.PI/2};
+}
+function draw(ctx,w,h,squares,progress,camera,settings){
+  const complete=Math.floor(progress),partial=easeInOutCubic(progress-complete);
+  const toX=x=>w/2+(x-camera.x.value)*camera.scale.value;
+  const toY=y=>h/2+(y-camera.y.value)*camera.scale.value;
+  ctx.save();if(settings.direction==='counterclockwise'){ctx.translate(w,0);ctx.scale(-1,1)}
+  for(let i=0;i<Math.min(squares.length,Math.ceil(progress));i++){
+    const s=squares[i],p=i<complete?1:partial,px=toX(s.x),py=toY(s.y),sz=s.size*camera.scale.value;
+    if(sz<.4||p<=0)continue;
+    ctx.save();ctx.globalAlpha=p;
+    let x=px,y=py,sw=sz,sh=sz;
+    if(i===complete){if(s.dir==='right'){sw=sz*p}else if(s.dir==='left'){sw=sz*p;x=px+sz-sw}else if(s.dir==='up'){sh=sz*p;y=py+sz-sh}else if(s.dir==='down'){sh=sz*p}else{sw=sz*p;sh=sz*p;x=px+(sz-sw)/2;y=py+(sz-sh)/2}}
+    if(settings.showSquares){
+      ctx.fillStyle=i%2?'rgba(198,145,55,.066)':'rgba(230,177,79,.043)';ctx.fillRect(x,y,sw,sh);
+      ctx.strokeStyle=`rgba(224,177,94,${.44+.33*p})`;ctx.lineWidth=settings.lineWidth;ctx.strokeRect(x+.5,y+.5,Math.max(0,sw-1),Math.max(0,sh-1));
+    }
+    if(settings.showSpiral&&sz>1){
+      const a=arcData(s);ctx.beginPath();ctx.arc(toX(a.cx),toY(a.cy),sz,a.start,a.start+(a.end-a.start)*p,a.end<a.start);
+      ctx.strokeStyle='#f7cb70';ctx.lineWidth=Math.max(1.2,settings.lineWidth*1.55);ctx.shadowColor='#e6ac48';ctx.shadowBlur=sz>8?10:0;ctx.stroke();ctx.shadowBlur=0;
+    }
+    if(settings.showNumbers&&sz>37&&p>.65){ctx.save();if(settings.direction==='counterclockwise'){ctx.translate(w,0);ctx.scale(-1,1)}ctx.font=`${Math.min(25,Math.max(10,sz*.18))}px 'DM Mono',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,233,187,.78)';const cx=px+sz/2,cy=py+sz/2;ctx.fillText(s.value.toString(),settings.direction==='counterclockwise'?w-cx:cx,cy,Math.max(10,sz*.92));ctx.restore()}
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function createFibonacci({canvas,state,workspace,preview=false}){
+  const surface=canvasSurface(canvas),local=preview?{steps:8,speed:.75,lineWidth:1,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:false,playing:true,progress:0}:state;
+  let squares=buildSquares(local.steps),camera={x:{value:.5,velocity:0},y:{value:.5,velocity:0},scale:{value:1,velocity:0}},previewCover=0,cameraInitialized=false;
+  function resetTimeline(play){local.progress=0;local.playing=play;camera.x={value:.5,velocity:0};camera.y={value:.5,velocity:0};camera.scale={value:Math.max(1,Math.min(surface.width,surface.height)*.73),velocity:0};cameraInitialized=true}
+  if(!preview){const panel=workspace.panel,geometry=section('01 / Sequence');
+    geometry.append(numberControl('Steps',state.steps,1,100,1,v=>{state.steps=v;squares=buildSquares(v);state.progress=Math.min(state.progress,v)}).el);
+    geometry.append(rangeControl('Animation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);
+    geometry.append(rangeControl('Line Width',state.lineWidth,.5,4,.1,v=>state.lineWidth=v,v=>`${v.toFixed(1)} px`).el);
+    const direction=document.createElement('div');direction.className='control';direction.innerHTML='<span class="control-label">Direction</span><div class="actions"><button class="button" type="button" data-dir="clockwise">Clockwise</button><button class="button" type="button" data-dir="counterclockwise">Counterclockwise</button></div>';
+    for(const b of direction.querySelectorAll('button')){b.addEventListener('click',()=>{state.direction=b.dataset.dir;sync()})}function sync(){for(const b of direction.querySelectorAll('button'))b.classList.toggle('primary',b.dataset.dir===state.direction)}sync();geometry.append(direction);panel.append(geometry);
+    const layers=section('02 / Layers');for(const [label,key] of [['Squares','showSquares'],['Spiral','showSpiral'],['Numbers','showNumbers']])layers.append(toggleControl(label,state[key],v=>state[key]=v).el);panel.append(layers);
+    const playback=section('03 / Timeline');playback.append(actions([['Run',()=>{if(state.progress>=state.steps)resetTimeline(true);else state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>resetTimeline(false)],['Replay',()=>resetTimeline(true)]]));panel.append(playback);
+  }
+  return {get cameraScale(){return camera.scale.value},update(dt){
+    const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
+    if(local.playing){local.progress+=dt*local.speed*1.1;if(local.progress>=local.steps){if(preview){resetTimeline(true);previewCover=1}else{local.progress=local.steps;local.playing=false}}}
+    const progress=clamp(local.progress,0,local.steps),visible=Math.max(1,Math.min(squares.length,Math.ceil(progress)));
+    const b=extent(squares,visible),bw=Math.max(1,b.maxX-b.minX),bh=Math.max(1,b.maxY-b.minY);
+    const targetScale=Math.min(w/bw,h/bh)*(preview?.71:.73);
+    const targetX=(b.minX+b.maxX)/2,targetY=(b.minY+b.maxY)/2;
+    if(!cameraInitialized){camera.x.value=targetX;camera.y.value=targetY;camera.scale.value=targetScale;cameraInitialized=true}
+    for(const [axis,target] of [['x',targetX],['y',targetY],['scale',targetScale]]){
+      const next=smoothDamp(camera[axis].value,target,camera[axis].velocity,reducedMotion?.08:.42,dt);camera[axis].value=next.value;camera[axis].velocity=next.velocity;
+    }
+    clear(ctx,w,h);grid(ctx,w,h,preview?44:54);
+    draw(ctx,w,h,squares,progress,camera,local);
+    if(preview){const closing=clamp((progress-(local.steps-.35))/.35,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.fillStyle=`rgba(5,5,5,${Math.max(closing,previewCover)})`;ctx.fillRect(0,0,w,h)}
+  }};
+}
+
+
+// src/experiments/phyllotaxis.js
+
+
+
+
+function sprite(size,glow){
+  const radius=Math.ceil(size*(2.5+glow*2)+4),c=document.createElement('canvas');c.width=c.height=radius*2;
+  const x=c.getContext('2d'),g=x.createRadialGradient(radius,radius,0,radius,radius,radius);
+  g.addColorStop(0,'rgba(255,223,143,1)');g.addColorStop(Math.min(.25,size/radius),'rgba(240,172,62,.95)');
+  g.addColorStop(.55,`rgba(219,130,28,${.22*glow})`);g.addColorStop(1,'rgba(219,130,28,0)');
+  x.fillStyle=g;x.fillRect(0,0,c.width,c.height);return {canvas:c,radius};
+}
+function phyllotaxisPoint(n,angleDegrees,spacing){const theta=n*angleDegrees*Math.PI/180,r=spacing*Math.sqrt(n);return {x:r*Math.cos(theta),y:r*Math.sin(theta)}}
+function createPhyllotaxis({canvas,state,workspace,preview=false}){
+  const surface=canvasSurface(canvas),local=preview?{points:330,angle:GOLDEN_ANGLE,targetAngle:GOLDEN_ANGLE,angleVelocity:0,spacing:7.5,dotSize:2.5,speed:.8,glow:.55,flicker:.12,playing:true,progress:0}:state;
+  let cached=null,cachedSize=-1,cachedGlow=-1,scale={value:1,velocity:0},slider,previewCover=0;
+  if(!preview){const panel=workspace.panel,geometry=section('01 / Phyllotaxis');
+    geometry.append(rangeControl('Point Count',state.points,1,2000,1,v=>state.points=v,v=>Math.round(v).toLocaleString()).el);
+    slider=angleSlider('Angle',state);geometry.append(slider.el);
+    geometry.append(rangeControl('Spacing',state.spacing,2,15,.1,v=>state.spacing=v,v=>`${v.toFixed(1)} u`).el);panel.append(geometry);
+    const appearance=section('02 / Appearance');
+    appearance.append(rangeControl('Dot Size',state.dotSize,.8,6,.1,v=>state.dotSize=v,v=>`${v.toFixed(1)} u`).el);
+    appearance.append(rangeControl('Growth Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);
+    appearance.append(rangeControl('Glow',state.glow,0,1,.01,v=>state.glow=v,v=>`${Math.round(v*100)}%`).el);
+    appearance.append(rangeControl('Flicker',state.flicker,0,1,.01,v=>state.flicker=v,v=>`${Math.round(v*100)}%`).el);panel.append(appearance);
+    const playback=section('03 / Growth');playback.append(actions([['Grow',()=>{if(state.progress>=state.points)state.progress=0;state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.playing=false;state.progress=0}],['Replay',()=>{state.progress=0;state.playing=true}]]));
+    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback);
+  }
+  return {update(dt,time){
+    const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
+    if(local.playing){local.progress+=dt*local.speed*(preview?95:240);if(local.progress>=local.points){if(preview){local.progress=0;previewCover=1}else{local.progress=local.points;local.playing=false}}}
+    const next=smoothDamp(local.angle,local.targetAngle,local.angleVelocity,reducedMotion?.08:.34,dt);local.angle=next.value;local.angleVelocity=next.velocity;
+    if(Math.abs(local.angle-local.targetAngle)<.0003&&Math.abs(local.angleVelocity)<.003){local.angle=local.targetAngle;local.angleVelocity=0}
+    const count=Math.min(local.points,Math.ceil(local.progress));
+    const outer=local.spacing*Math.sqrt(Math.max(1,count));const targetScale=Math.min(w,h)*.39/Math.max(20,outer);
+    const s=smoothDamp(scale.value,targetScale,scale.velocity,.4,dt);scale.value=s.value;scale.velocity=s.velocity;
+    const dotRadius=local.dotSize*Math.max(.55,Math.min(1.5,scale.value));
+    if(!cached||Math.abs(dotRadius-cachedSize)>.4||Math.abs(local.glow-cachedGlow)>.08){cached=sprite(dotRadius,local.glow);cachedSize=dotRadius;cachedGlow=local.glow}
+    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    ctx.save();ctx.translate(w/2,h/2);
+    for(let n=0;n<count;n++){
+      // The canonical phyllotaxis rule: no random positions.
+      const point=phyllotaxisPoint(n,local.angle,local.spacing);
+      const x=point.x*scale.value,y=point.y*scale.value;
+      const age=clamp(local.progress-n,0,1),spawn=age*age*(3-2*age);
+      if(spawn<=0)continue;
+      const shimmer=1-local.flicker*.12*(.5+.5*Math.sin(n*12.9898+time*19))*Math.max(0,1-age);
+      ctx.globalAlpha=spawn*shimmer;
+      const radius=cached.radius*spawn;ctx.drawImage(cached.canvas,x-radius,y-radius,radius*2,radius*2);
+    }
+    ctx.restore();
+    if(preview){const closing=clamp((local.progress-(local.points-28))/28,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.fillStyle=`rgba(5,5,5,${Math.max(closing,previewCover)})`;ctx.fillRect(0,0,w,h)}
+    if(!preview)slider.update(Math.exp(-Math.pow(Math.abs(local.angle-GOLDEN_ANGLE)/6,2)));
+  }};
+}
+
+
+// src/experiments/petals.js
+
+
+
+
+function petalPath(ctx,length,width){
+  ctx.beginPath();ctx.moveTo(0,0);
+  ctx.bezierCurveTo(width*.76,-length*.18,width*1.08,-length*.55,0,-length);
+  ctx.bezierCurveTo(-width*1.08,-length*.55,-width*.76,-length*.18,0,0);ctx.closePath();
+}
+function drawFlower(ctx,w,h,p,{count,angle,length,width,center,glow,rotation,pulse}){
+  ctx.save();ctx.translate(w/2,h/2);const fit=Math.min(w,h)*.41/(length*1.38);ctx.scale(fit,fit);ctx.rotate(rotation);
+  const aura=ctx.createRadialGradient(0,0,10,0,0,length*1.27);aura.addColorStop(0,`rgba(210,142,40,${.17+glow*.14})`);aura.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=aura;ctx.beginPath();ctx.arc(0,0,length*1.27,0,TAU);ctx.fill();
+  const drawCount=Math.ceil(count);const goldenBoost=1+pulse*.034;
+  for(let i=drawCount-1;i>=0;i--){const visibility=clamp(count-i,0,1);if(visibility<=0)continue;
+    const a=i*angle*Math.PI/180;const radial=center*.4+length*.23*Math.sqrt((i+.5)/Math.max(count,1));
+    const petalLength=length*(.57+.43*Math.sqrt((i+4)/(Math.max(count,1)+4)))*goldenBoost;
+    const petalWidth=width*(.75+.25*Math.sqrt((i+1)/Math.max(count,1)));
+    ctx.save();ctx.rotate(a);ctx.translate(0,-radial);ctx.globalAlpha=visibility*(.44+.45*(i/drawCount));
+    if(p>0&&count<45&&i%3===0){ctx.shadowColor='#d99b39';ctx.shadowBlur=Math.min(35,8+glow*23+p*18)}
+    const grad=ctx.createLinearGradient(-petalWidth,0,petalWidth*.3,-petalLength);grad.addColorStop(0,'#6b3d16');grad.addColorStop(.33,'#b57624');grad.addColorStop(.67,'#e5af49');grad.addColorStop(1,'#f7d47c');ctx.fillStyle=grad;
+    petalPath(ctx,petalLength,petalWidth);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(255,221,146,.38)';ctx.lineWidth=.9;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-5);ctx.quadraticCurveTo(petalWidth*.13,-petalLength*.5,0,-petalLength*.92);ctx.strokeStyle='rgba(255,225,155,.18)';ctx.stroke();ctx.restore();
+  }
+  const cg=ctx.createRadialGradient(0,0,0,0,0,center*2.8);cg.addColorStop(0,`rgba(255,215,125,${.24+p*.16})`);cg.addColorStop(1,'rgba(255,185,66,0)');ctx.fillStyle=cg;ctx.beginPath();ctx.arc(0,0,center*2.8,0,TAU);ctx.fill();
+  const centerGrad=ctx.createRadialGradient(-center*.22,-center*.25,1,0,0,center);centerGrad.addColorStop(0,'#f5ca6c');centerGrad.addColorStop(.5,'#b2752a');centerGrad.addColorStop(1,'#34200e');ctx.fillStyle=centerGrad;ctx.beginPath();ctx.arc(0,0,center,0,TAU);ctx.fill();ctx.strokeStyle='#f4c46b88';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+function createPetals({canvas,state,workspace,preview=false}){
+  const surface=canvasSurface(canvas);let slider,status,countControl;
+  let previewAngle=120,previewClock=0,wasGolden=false;
+  if(!preview){
+    const panel=workspace.panel;const primary=section('01 / Geometry');
+    countControl=numberControl('Petal Count',state.targetCount,1,100,1,v=>{state.targetCount=v;state.petalCount=v});primary.append(countControl.el);
+    slider=angleSlider('Angle',state);primary.append(slider.el);
+    status=document.createElement('div');status.className='golden-status';primary.append(status);
+    panel.append(primary);
+    const form=section('02 / Form');
+    form.append(rangeControl('Petal Length',state.petalLength,80,280,1,v=>state.petalLength=v,v=>`${v} u`).el);
+    form.append(rangeControl('Petal Width',state.petalWidth,8,70,1,v=>state.petalWidth=v,v=>`${v} u`).el);
+    form.append(rangeControl('Center Radius',state.centerRadius,5,35,1,v=>state.centerRadius=v,v=>`${v} u`).el);
+    form.append(rangeControl('Glow Strength',state.glow,0,1,.01,v=>state.glow=v,v=>`${Math.round(v*100)}%`).el);
+    form.append(rangeControl('Animation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);panel.append(form);
+    const playback=section('03 / Motion');
+    playback.append(actions([['Play',()=>state.playing=true,'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.targetAngle=120;state.targetCount=15;state.petalCount=15;countControl.set(15);state.playing=false;state.rotation=0}]]));
+    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback);
+  }
+  return {update(dt,time){
+    const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
+    let angle,count,rotation,glow,pulse;
+    if(preview){previewClock+=dt;const phase=(previewClock%10)/10;const target=phase<.57?GOLDEN_ANGLE:120;previewAngle+=(target-previewAngle)*Math.min(1,dt*1.5);angle=previewAngle;count=15;rotation=time*.025;glow=.48;}
+    else {
+      const next=smoothDamp(state.currentAngle,state.targetAngle,state.angleVelocity,reducedMotion?.08:.33/Math.sqrt(state.speed),dt);
+      state.currentAngle=next.value;state.angleVelocity=next.velocity;
+      if(Math.abs(state.currentAngle-state.targetAngle)<.0003&&Math.abs(state.angleVelocity)<.003){state.currentAngle=state.targetAngle;state.angleVelocity=0;}
+      state.currentCount+= (state.targetCount-state.currentCount)*Math.min(1,dt*6);
+      if(Math.abs(state.currentCount-state.targetCount)<.001)state.currentCount=state.targetCount;
+      if(state.playing)state.rotation+=dt*.045*state.speed;
+      angle=state.currentAngle;count=state.currentCount;rotation=state.rotation;glow=state.glow;
+    }
+    const proximity=Math.exp(-Math.pow(Math.abs(angle-GOLDEN_ANGLE)/5.5,2));
+    if(preview)pulse=proximity*(.5+.5*Math.sin(time*2.8));
+    else {const atGolden=proximity>.997;if(atGolden&&!wasGolden)state.goldenPulse=1;wasGolden=atGolden;state.goldenPulse*=Math.exp(-dt*3.2);pulse=proximity*state.goldenPulse;}
+    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    drawFlower(ctx,w,h,proximity,{count,angle,length:preview?180:state.petalLength,width:preview?35:state.petalWidth,center:preview?16:state.centerRadius,glow,rotation,pulse});
+    if(!preview){slider.update(proximity);status.textContent=proximity>.97?'φ  GOLDEN ANGLE':`ANGLE / ${angle.toFixed(1)}°`;}
+  }};
+}
+
+
+// src/experiments/mechanics.js
+
+
+
+const MAX_INDEX=10000, SCALE=10n**40n, PHI_SCALED=16180339887498948482045868343656381177203n;
+const cache=new Map([[0,0n],[1,1n],[2,1n]]);
+function pair(n){if(n===0)return [0n,1n];const [a,b]=pair(Math.floor(n/2)),c=a*(2n*b-a),d=a*a+b*b;return n%2?[d,c+d]:[c,d]}
+function fib(n){if(n<0)return 0n;if(!cache.has(n)){cache.set(n,pair(n)[0]);if(cache.size>60)cache.delete(cache.keys().next().value)}return cache.get(n)}
+function short(value,max=23){const s=String(value);return s.length<=max?s:`${s.slice(0,Math.ceil(max*.55))}…${s.slice(-Math.floor(max*.32))}`}
+function ratio(index){const numerator=fib(index),denominator=fib(index-1),scaled=numerator*SCALE/denominator;
+  const digits=scaled.toString().padStart(41,'0'),decimal=`${digits.slice(0,-40)}.${digits.slice(-40,-28)}…`;
+  const error=scaled>PHI_SCALED?scaled-PHI_SCALED:PHI_SCALED-scaled;
+  const closeness=error===0n?1:clamp(1-(error.toString().length-1)/40,0,1);
+  return {numerator,denominator,decimal,closeness};
+}
+function previewDraw(ctx,w,h,time){
+  clear(ctx,w,h);grid(ctx,w,h,46);ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(let k=-3;k<=3;k++){const index=Math.round(pos)+k;if(index<2)continue;const d=index-pos;ctx.globalAlpha=Math.max(0,1-Math.abs(d)*.25);ctx.fillStyle=Math.abs(d)<.5?'#f2ce78':'#a8a198';ctx.font=`${Math.round(24-Math.abs(d)*3)}px 'DM Mono',monospace`;ctx.fillText(short(fib(index),12),0,d*45)}
+  ctx.globalAlpha=1;ctx.strokeStyle='#a7803a';ctx.beginPath();ctx.moveTo(-70,-24);ctx.lineTo(70,-24);ctx.moveTo(-70,24);ctx.lineTo(70,24);ctx.stroke();ctx.restore();
+  ctx.save();ctx.translate(w*.73,h*.46);ctx.textAlign='center';ctx.fillStyle='#a49a86';ctx.font="12px 'DM Mono',monospace";ctx.fillText('Fₙ / Fₙ₋₁',0,-25);ctx.fillStyle='#f1c66a';ctx.font="22px 'DM Mono',monospace";ctx.fillText('1.618…',0,11);ctx.fillStyle='#786b52';ctx.font="11px 'DM Mono',monospace";ctx.fillText('→ φ',0,37);ctx.restore();
+}
+function animateEquation(stage,slots,values,direction){
+  for(const ghost of stage.querySelectorAll('.eq-ghost'))ghost.remove();
+  slots.forEach(el=>el.style.opacity='');
+  const old=slots.map(el=>el.textContent),stageRect=stage.getBoundingClientRect(),from=slots.map(el=>el.getBoundingClientRect());
+  slots.forEach((el,i)=>el.textContent=values[i]);
+  const to=slots.map(el=>el.getBoundingClientRect()),used=new Set();
+  for(let i=0;i<3;i++){
+    const j=old.findIndex((v,k)=>v===values[i]&&!used.has(k));
+    if(j<0){slots[i].classList.remove('enter-forward','enter-backward');void slots[i].offsetWidth;slots[i].classList.add(direction>=0?'enter-forward':'enter-backward');continue}
+    used.add(j);const ghost=document.createElement('span');ghost.className='eq-ghost';ghost.textContent=values[i];
+    ghost.style.cssText=`position:absolute;z-index:3;left:${from[j].left-stageRect.left}px;top:${from[j].top-stageRect.top}px;width:${from[j].width}px;height:${from[j].height}px;display:flex;align-items:center;justify-content:center;white-space:nowrap;color:${i===0?'#f3cf78':'#eee6d7'};font:inherit;pointer-events:none;overflow:hidden`;
+    stage.append(ghost);slots[i].style.opacity='0';
+    const a=ghost.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${to[i].left-from[j].left}px,${to[i].top-from[j].top}px)`,opacity:1}],{duration:reducedMotion?100:490,easing:'cubic-bezier(.19,.75,.2,1)'});
+    a.finished.finally(()=>{ghost.remove();slots[i].style.opacity=''});
+  }
+}
+function createMechanics({canvas,state,workspace,preview=false}){
+  if(preview){const surface=canvasSurface(canvas);return {update(dt,time){const {ctx,width:w,height:h}=surface.resize();if(w>1&&h>1)previewDraw(ctx,w,h,time)}}}
+  const body=workspace.body;body.classList.add('mechanics-body');
+  const panel=workspace.panel,stage=document.createElement('div');stage.className='mechanics-stage';
+  stage.innerHTML=`<div class="mechanics-roller-section"><div><h3>01 / THE SEQUENCE</h3><div class="wheel-wrap" tabindex="0" role="slider" aria-label="Fibonacci number wheel" aria-valuemin="2" aria-valuemax="10000"><div class="wheel-items"></div><div class="wheel-center"></div></div></div><div class="ratio-display"><div class="ratio-label">CONSECUTIVE RATIO</div><div class="ratio-fraction"></div><div class="ratio-value"></div><div class="phi-reference">φ ≈ 1.6180339887…</div><div class="ratio-note">The ratio converges toward φ. Every finite ratio remains an approximation.</div></div></div><div class="recurrence-section"><h3>02 / THE RECURRENCE</h3><div class="equation-stage"><span class="eq-slot result"></span><span class="eq-operator">=</span><span class="eq-slot previous"></span><span class="eq-operator">+</span><span class="eq-slot before"></span></div><div class="recurrence-caption">Fₙ = Fₙ₋₁ + Fₙ₋₂</div></div>`;
+  body.insertBefore(stage,panel);const wheel=stage.querySelector('.wheel-wrap'),items=stage.querySelector('.wheel-items');
+  const itemEls=Array.from({length:9},()=>{const el=document.createElement('div');el.className='wheel-item';items.append(el);return el});
+  const fraction=stage.querySelector('.ratio-fraction'),value=stage.querySelector('.ratio-value'),display=stage.querySelector('.ratio-display'),slots=[...stage.querySelectorAll('.eq-slot')],equation=stage.querySelector('.equation-stage');
+  const controls=section('01 / Roller');controls.append(rangeControl('Auto Roll Speed',state.speed,.2,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);panel.append(controls);
+  const playback=section('02 / Playback');playback.append(actions([['Play',()=>{state.playing=true;state.autoTimer=0},'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.playing=false;state.position=11;state.velocity=0;state.activeIndex=11;refresh(true)}]]));panel.append(playback);
+  const hint=document.createElement('p');hint.className='panel-description';hint.textContent='Drag, swipe, scroll, or use the arrow keys. The wheel keeps its momentum and settles on an exact Fibonacci term.';panel.append(hint);
+  const events=new AbortController();let dragging=false,lastY=0,lastTime=0;
+  function manual(){state.manualUntil=performance.now()/1000+2.2;state.autoTimer=0}
+  wheel.addEventListener('wheel',e=>{e.preventDefault();manual();state.velocity=clamp(state.velocity+e.deltaY*.026,-38,38)},{passive:false,signal:events.signal});
+  wheel.addEventListener('pointerdown',e=>{dragging=true;manual();state.velocity=0;lastY=e.clientY;lastTime=performance.now();wheel.setPointerCapture(e.pointerId)},{signal:events.signal});
+  wheel.addEventListener('pointermove',e=>{if(!dragging)return;const now=performance.now(),dy=e.clientY-lastY,dt=Math.max(.008,(now-lastTime)/1000);state.position=clamp(state.position-dy/55,2,MAX_INDEX);state.velocity=clamp(-dy/55/dt,-35,35);lastY=e.clientY;lastTime=now},{signal:events.signal});
+  wheel.addEventListener('pointerup',()=>dragging=false,{signal:events.signal});wheel.addEventListener('pointercancel',()=>dragging=false,{signal:events.signal});
+  wheel.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)){e.preventDefault();manual();const change=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:e.key==='PageUp'?-5:5;state.velocity=0;state.position=clamp(e.key==='Home'?2:e.key==='End'?MAX_INDEX:Math.round(state.position)+change,2,MAX_INDEX);refresh()}},{signal:events.signal});
+  function refresh(force=false){const index=clamp(Math.round(state.position),2,MAX_INDEX);if(!force&&index===state.activeIndex)return;
+    const direction=index-state.activeIndex;state.activeIndex=index;const data=ratio(index);
+    fraction.textContent=`${short(data.numerator,32)} / ${short(data.denominator,32)}`;fraction.title=`${data.numerator} / ${data.denominator}`;
+    value.textContent=data.decimal;display.style.setProperty('--ratio-glow',data.closeness.toFixed(3));
+    const values=[fib(index),fib(index-1),fib(index-2)].map(String);
+    if(force||!slots[0].textContent)slots.forEach((el,i)=>el.textContent=values[i]);else animateEquation(equation,slots,values,direction);
+    slots.forEach((el,i)=>el.title=values[i]);wheel.setAttribute('aria-valuenow',String(index));wheel.setAttribute('aria-valuetext',`Fibonacci term ${index}: ${short(data.numerator,18)}`);
+  }
+  refresh(true);
+  return {dispose(){events.abort();stage.remove();body.classList.remove('mechanics-body')},update(dt,time){
+    if(!dragging){
+      if(state.playing&&time>state.manualUntil&&Math.abs(state.velocity)<.15){state.autoTimer+=dt*state.speed;if(state.autoTimer>1.18){state.autoTimer=0;state.velocity=clamp(state.velocity+4.7*state.speed,0,12)}}
+      if(Math.abs(state.velocity)>.13){state.position+=state.velocity*dt;state.velocity*=Math.exp(-4.8*dt)}
+      else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.19,dt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
+      state.position=clamp(state.position,2,MAX_INDEX);if(state.position===2||state.position===MAX_INDEX)state.velocity=0;
+    }
+    refresh();const nearest=Math.round(state.position);
+    for(let j=-4;j<=4;j++){const el=itemEls[j+4],index=nearest+j;if(index<2||index>MAX_INDEX){el.style.display='none';continue}el.style.display='flex';
+      const d=index-state.position,abs=Math.abs(d);if(el.dataset.index!==String(index)){const term=fib(index);el.textContent=short(term,23);el.title=term.toString();el.dataset.index=String(index)}el.classList.toggle('active',index===state.activeIndex);
+      el.style.transform=`translateY(calc(-50% + ${d*54}px)) scale(${Math.max(.58,1-abs*.105)}) rotateX(${d*-5}deg)`;el.style.opacity=String(Math.max(0,1-abs*.22));
+    }
+  }};
+}
+
+
+// src/app.js
+
+
+
+
+
+
+
+
+const app=document.querySelector('#app');app.className='app-shell';
+const overview=createOverview(open);const workspace=createWorkspace(close);app.append(overview.el,workspace.el);
+const factories={fibonacci:createFibonacci,phyllotaxis:createPhyllotaxis,petals:createPetals,mechanics:createMechanics};
+let activeInstance=null;let active=null,originCard=null,transitioning=false;
+const previewInstances=Object.fromEntries(experiments.map(item=>[item.id,factories[item.id]({canvas:overview.canvases[item.id],state:state[item.id],preview:true})]));
+
+function transition(card,forward,done){
+  if(reducedMotion){done();return}
+  const rect=card.getBoundingClientRect(),sheet=document.createElement('div');sheet.className='transition-rect';
+  sheet.textContent=card.querySelector('h2')?.textContent||'GOLDEN LAB';
+  const preview=card.querySelector('canvas');if(preview?.width)sheet.style.backgroundImage=`linear-gradient(180deg, transparent 35%, #050505 100%), url(${preview.toDataURL('image/png')})`;
+  document.body.append(sheet);
+  const start={left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`,borderRadius:'3px',opacity:1};
+  const end={left:'0px',top:'0px',width:`${innerWidth}px`,height:`${innerHeight}px`,borderRadius:'0px',opacity:1};
+  const anim=sheet.animate(forward?[start,end]:[end,start],{duration:forward?650:560,easing:'cubic-bezier(.19,.76,.25,1)',fill:'forwards'});
+  anim.finished.finally(()=>{sheet.remove();done()});
+}
+function open(id,card){
+  if(transitioning)return;transitioning=true;originCard=card;active=id;overview.el.classList.add('dimmed');
+  workspace.setExperiment(id);
+  activeInstance?.dispose?.();activeInstance=factories[id]({canvas:workspace.canvas,state:state[id],workspace});
+  transition(card,true,()=>{workspace.el.classList.add('visible');workspace.el.setAttribute('aria-hidden','false');transitioning=false;workspace.el.querySelector('.back-button').focus({preventScroll:true});});
+}
+function close(){
+  if(transitioning||!active)return;transitioning=true;workspace.el.classList.remove('visible');workspace.el.setAttribute('aria-hidden','true');
+  const card=originCard;transition(card,false,()=>{activeInstance?.dispose?.();activeInstance=null;overview.el.classList.remove('dimmed');card.focus({preventScroll:true});active=null;transitioning=false;});
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&active)close()});
+let fps=60,debugEl=null;
+if(DEBUG){debugEl=document.createElement('div');debugEl.className='debug';workspace.el.append(debugEl)}
+loop((dt,time,frame)=>{
+  fps += ((1/Math.max(dt,.001))-fps)*.04;
+  if(!active&&frame%2===0)for(const instance of Object.values(previewInstances))instance.update(dt*2,time);
+  if(active&&!transitioning)activeInstance?.update(dt,time);
+  if(DEBUG&&active){const s=state[active];debugEl.textContent=`FPS ${fps.toFixed(0)}\n${active==='petals'||active==='phyllotaxis'?`ANGLE ${(s.currentAngle??s.angle).toFixed(3)}\nTARGET ${s.targetAngle.toFixed(3)}\nVELOCITY ${(s.angleVelocity??0).toFixed(3)}`:active==='mechanics'?`INDEX ${s.activeIndex}\nPOSITION ${s.position.toFixed(3)}\nVELOCITY ${s.velocity.toFixed(3)}`:`STEP ${s.progress.toFixed(2)}\nCAMERA ${activeInstance?.cameraScale?.toExponential(2)??''}`}`}
+});
+
+</script>
+</body>
+</html>

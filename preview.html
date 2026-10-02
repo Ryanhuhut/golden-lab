@@ -102,8 +102,6 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 .angle-thumb{position:absolute;top:50%;width:15px;height:15px;border:2px solid var(--gold-bright);border-radius:50%;background:#17130b;transform:translate(-50%,-50%);box-shadow:0 0 calc(5px + var(--angle-glow)*25px) rgba(240,186,68,.78)}
 .golden-marker{position:absolute;top:0;transform:translateX(-50%);border:0;background:transparent;color:var(--gold-bright);width:26px;height:20px;font:18px Georgia,serif;z-index:2;padding:0;text-shadow:0 0 calc(5px + var(--angle-glow)*20px) #dca944}
 .golden-marker:after{content:'';position:absolute;top:21px;height:7px;width:1px;left:50%;background:var(--gold)}
-.angle-endpoints{display:flex;justify-content:space-between;position:relative;color:#706d65;font:9px var(--mono)}
-.golden-caption{position:absolute;top:0;transform:translateX(-50%);color:var(--gold);font-size:8px;white-space:nowrap}
 .angle-control.at-golden .angle-readout{color:#ffe29c}
 .golden-status{min-height:18px;color:var(--gold);font:10px var(--mono);letter-spacing:.1em}
 .debug{position:absolute;top:20px;right:20px;z-index:2;color:#d7c394;font:10px/1.5 var(--mono);white-space:pre;text-align:right;pointer-events:none}
@@ -176,7 +174,6 @@ to{opacity:1;transform:none}
 .ratio-display{padding:16px 0 30px}
 .equation-stage{height:130px;gap:6px}
 .eq-slot{font-size:clamp(17px,5vw,29px)}
-.golden-caption{font-size:7px}
 }
 
 @media(prefers-reduced-motion:reduce){.experiment-card,.overview,.workspace,.button{transition-duration:.12s!important}
@@ -228,7 +225,6 @@ body.workspace-open{overflow:hidden}
 .stage-angle-overlay{position:absolute;z-index:3;left:24px;right:24px;bottom:20px;padding:11px 17px 5px;background:color-mix(in srgb,var(--bg) 88%,transparent);border:1px solid #39352b;backdrop-filter:blur(9px);box-shadow:0 10px 34px #0006;transition:opacity .35s,transform .4s}
 .stage-angle-overlay .angle-control{margin:0 0 8px}
 .stage-angle-overlay .angle-readout{font-size:21px}
-.stage-angle-overlay .angle-endpoints{font-size:10px}
 .stage.has-angle-control .stage-label{display:none}
 @media(max-width:650px){.stage-angle-overlay{left:10px;right:10px;bottom:10px;padding:8px 12px 3px}.stage-angle-overlay .angle-readout{font-size:17px}}
 .advanced-settings{border-top:1px solid var(--line);margin-top:25px;padding-top:16px}
@@ -306,6 +302,24 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:2px solid #f0d
 @media(max-height:620px) and (min-width:901px){.workspace{overflow-y:auto}.workspace-frame{height:auto;min-height:100svh}.workspace-body{min-height:485px}.mechanics-stage{min-height:485px}}
 @media(max-width:900px){.mechanics-body{display:flex;overflow:visible}.mechanics-stage{overflow:hidden;display:block}.mechanics-roller-section{min-height:0}.wheel-wrap{height:260px}.recurrence-section{margin-top:18px}}
 @media(max-width:650px){.mechanics-stage{padding:20px 14px}.mechanics-roller-section{display:block}.ratio-display{padding:24px 12px}.ratio-fraction{font-size:clamp(20px,6vw,35px)}.ratio-value{font-size:clamp(25px,7vw,42px)}.equation-stage{height:84px;gap:4px}.eq-operator{font-size:20px}.recurrence-section{padding:16px 9px}}
+
+/* Angle ticks, labels, marker and pointer mapping share one inset scale. */
+.angle-track-area{height:64px}
+.angle-scale{position:relative;height:100%;margin-inline:22px}
+.angle-tick{position:absolute;top:29px;width:1px;height:8px;background:#928b7d;transform:translateX(-50%);pointer-events:none}
+.angle-tick.tick-start{left:0}
+.angle-tick.tick-end{left:100%}
+.golden-marker{height:37px}
+.golden-marker:after{top:26px;height:11px;transform:translateX(-50%)}
+.angle-mark-label{position:absolute;top:42px;transform:translateX(-50%);color:#a7a29a;font:10px var(--mono);font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap;pointer-events:none}
+.angle-mark-label.mark-start{left:0}
+.angle-mark-label.mark-end{left:100%}
+.angle-mark-label.golden-caption{top:40px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--gold);font-size:10px;letter-spacing:.02em}
+.golden-caption strong{font-weight:500}
+.golden-caption small{font:7px var(--mono);letter-spacing:.08em}
+.petals-playback .actions{gap:10px}
+.petals-playback .actions+.actions{margin-top:13px}
+@media(max-width:650px){.angle-mark-label{font-size:9px}.angle-mark-label.golden-caption{font-size:9px}.golden-caption small{font-size:6px}}
 
 </style>
 </head>
@@ -453,14 +467,13 @@ function toggleControl(label,value,onChange){
 function angleSlider(label, state, options={}) {
   const root=document.createElement('div');root.className='angle-control';
   root.innerHTML=`<div class="control-top"><span class="control-label">${label}</span><span class="angle-readout">${(state.currentAngle??state.angle).toFixed(1)}°</span></div>
-    <div class="angle-track-area"><div class="angle-track"><div class="angle-active"></div></div><div class="angle-thumb"></div><button type="button" class="golden-marker" aria-label="Animate to Golden Angle, 137.5 degrees"><span>φ</span></button></div>
-    <div class="angle-endpoints"><span>0.0°</span><span class="golden-caption">137.5° · GOLDEN ANGLE</span><span>360.0°</span></div>`;
-  const area=root.querySelector('.angle-track-area'), active=root.querySelector('.angle-active'), thumb=root.querySelector('.angle-thumb'), marker=root.querySelector('.golden-marker'), readout=root.querySelector('.angle-readout');
+    <div class="angle-track-area"><div class="angle-scale"><div class="angle-track"><div class="angle-active"></div></div><div class="angle-thumb"></div><button type="button" class="golden-marker" aria-label="Animate to Golden Angle, 137.5 degrees"><span>φ</span></button><span class="angle-tick tick-start" aria-hidden="true"></span><span class="angle-tick tick-end" aria-hidden="true"></span><span class="angle-mark-label mark-start">0.0°</span><span class="angle-mark-label golden-caption"><strong>137.5°</strong><small>GOLDEN ANGLE</small></span><span class="angle-mark-label mark-end">360.0°</span></div></div>`;
+  const area=root.querySelector('.angle-track-area'), scale=root.querySelector('.angle-scale'), active=root.querySelector('.angle-active'), thumb=root.querySelector('.angle-thumb'), marker=root.querySelector('.golden-marker'), readout=root.querySelector('.angle-readout');
   marker.style.left=`${GOLDEN_ANGLE/360*100}%`;
   root.querySelector('.golden-caption').style.left=`${GOLDEN_ANGLE/360*100}%`;
   let dragging=false;
   function setTarget(value){state.targetAngle=clamp(Math.round(value*10)/10,0,360);options.onTarget?.(state.targetAngle)}
-  function setFromPointer(e){const rect=area.getBoundingClientRect();if(rect.width>0)setTarget((e.clientX-rect.left)/rect.width*360)}
+  function setFromPointer(e){const rect=scale.getBoundingClientRect();if(rect.width>0)setTarget((e.clientX-rect.left)/rect.width*360)}
   area.addEventListener('pointerdown',e=>{if(e.target.closest('.golden-marker'))return;dragging=true;area.setPointerCapture(e.pointerId);setFromPointer(e)});
   area.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
   area.addEventListener('pointerup',()=>{dragging=false;if(Math.abs(state.targetAngle-GOLDEN_ANGLE)<.45)setTarget(GOLDEN_ANGLE)});area.addEventListener('pointercancel',()=>dragging=false);
@@ -911,7 +924,7 @@ function createPetals({canvas,state,workspace,preview=false}){
     overlay.append(slider.el);
     status=document.createElement('div');status.className='golden-status';overlay.append(status);
     workspace.stage.append(overlay);workspace.stage.classList.add('has-angle-control');
-    const playback=section('02 / Motion');
+    const playback=section('02 / Motion');playback.classList.add('petals-playback');
     playback.append(rangeControl('Animation Duration',state.duration,1,24,.5,v=>state.duration=v,v=>v.toFixed(1)+' s').el);
     const mainActions=actions([['Run',run,'primary'],['Pause',pause],['Reset',reset]]);
     pauseButton=mainActions.querySelectorAll('button')[1];pauseButton.textContent=state.motion.paused?'Resume':'Pause';playback.append(mainActions);

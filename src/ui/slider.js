@@ -3,14 +3,13 @@ import { GOLDEN_ANGLE, clamp } from '../core/animation.js';
 export function angleSlider(label, state, options={}) {
   const root=document.createElement('div');root.className='angle-control';
   root.innerHTML=`<div class="control-top"><span class="control-label">${label}</span><span class="angle-readout">${(state.currentAngle??state.angle).toFixed(1)}°</span></div>
-    <div class="angle-track-area"><div class="angle-track"><div class="angle-active"></div></div><div class="angle-thumb"></div><button type="button" class="golden-marker" aria-label="Animate to Golden Angle, 137.5 degrees"><span>φ</span></button></div>
-    <div class="angle-endpoints"><span>0.0°</span><span class="golden-caption">137.5° · GOLDEN ANGLE</span><span>360.0°</span></div>`;
-  const area=root.querySelector('.angle-track-area'), active=root.querySelector('.angle-active'), thumb=root.querySelector('.angle-thumb'), marker=root.querySelector('.golden-marker'), readout=root.querySelector('.angle-readout');
+    <div class="angle-track-area"><div class="angle-scale"><div class="angle-track"><div class="angle-active"></div></div><div class="angle-thumb"></div><button type="button" class="golden-marker" aria-label="Animate to Golden Angle, 137.5 degrees"><span>φ</span></button><span class="angle-tick tick-start" aria-hidden="true"></span><span class="angle-tick tick-end" aria-hidden="true"></span><span class="angle-mark-label mark-start">0.0°</span><span class="angle-mark-label golden-caption"><strong>137.5°</strong><small>GOLDEN ANGLE</small></span><span class="angle-mark-label mark-end">360.0°</span></div></div>`;
+  const area=root.querySelector('.angle-track-area'), scale=root.querySelector('.angle-scale'), active=root.querySelector('.angle-active'), thumb=root.querySelector('.angle-thumb'), marker=root.querySelector('.golden-marker'), readout=root.querySelector('.angle-readout');
   marker.style.left=`${GOLDEN_ANGLE/360*100}%`;
   root.querySelector('.golden-caption').style.left=`${GOLDEN_ANGLE/360*100}%`;
   let dragging=false;
   function setTarget(value){state.targetAngle=clamp(Math.round(value*10)/10,0,360);options.onTarget?.(state.targetAngle)}
-  function setFromPointer(e){const rect=area.getBoundingClientRect();if(rect.width>0)setTarget((e.clientX-rect.left)/rect.width*360)}
+  function setFromPointer(e){const rect=scale.getBoundingClientRect();if(rect.width>0)setTarget((e.clientX-rect.left)/rect.width*360)}
   area.addEventListener('pointerdown',e=>{if(e.target.closest('.golden-marker'))return;dragging=true;area.setPointerCapture(e.pointerId);setFromPointer(e)});
   area.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
   area.addEventListener('pointerup',()=>{dragging=false;if(Math.abs(state.targetAngle-GOLDEN_ANGLE)<.45)setTarget(GOLDEN_ANGLE)});area.addEventListener('pointercancel',()=>dragging=false);

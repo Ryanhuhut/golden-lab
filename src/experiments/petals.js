@@ -83,7 +83,7 @@ export function createPetals({canvas,state,workspace,preview=false}){
     overlay.append(slider.el);
     status=document.createElement('div');status.className='golden-status';overlay.append(status);
     workspace.stage.append(overlay);workspace.stage.classList.add('has-angle-control');
-    const playback=section('02 / Motion');
+    const playback=section('02 / Motion');playback.classList.add('petals-playback');
     playback.append(rangeControl('Animation Duration',state.duration,1,24,.5,v=>state.duration=v,v=>v.toFixed(1)+' s').el);
     const mainActions=actions([['Run',run,'primary'],['Pause',pause],['Reset',reset]]);
     pauseButton=mainActions.querySelectorAll('button')[1];pauseButton.textContent=state.motion.paused?'Resume':'Pause';playback.append(mainActions);

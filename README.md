@@ -1,4 +1,8 @@
-# GOLDEN LAB
+# GOLDEN LAB — Numbers in Motion
+
+Designed by **THAI / Ryanhuhut**.
+
+[Open the live site](https://ryanhuhut.github.io/golden-lab/).
 
 GOLDEN LAB is a static, interactive mathematical motion laboratory. Four Canvas experiments and a Pascal Triangle hero explore how simple rules become geometric structures. The visual language is graphite, black, off-white, and restrained gold. The site has no backend or heavy framework.
 
@@ -50,12 +54,6 @@ npm test runs the Node mathematical and renderer checks in tests/math.test.js. A
 
 Rendering runs through a shared requestAnimationFrame loop at the display refresh rate, with elapsed-time motion and a page-visibility pause. Experiments use Canvas 2D instead of per-point DOM nodes. Motion helpers provide springs, damping, and easing; scripted Petals motion uses a mostly steady time curve. Canvas backing resolution is capped at DPR 2. Static stage grids are cached, and the three Canvas workspace experiments offer a Grid setting that remains in memory while the page is open. Graphite is the default appearance; the UI also offers True Black.
 
-## Branding and handoff
+## Branding
 
-The project name is **GOLDEN LAB**. The footer carries the subtle creator mark **Ryanhuhut**, and the browser tab uses a gold φ favicon. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for verification and outstanding browser QA, and [docs/EDITING_ASSETS.md](docs/EDITING_ASSETS.md) for the next motion-graphics phase.
-
-**Git in this workspace:** the environment provides an empty, read-only .git directory, so plain git status fails here. The existing development history is preserved in the local, ignored .goldenlab-history.git directory. To inspect it in this workspace, use:
-
-    GIT_DIR=.goldenlab-history.git GIT_WORK_TREE=. git status
-
-Use the same prefix for git log, tag, and other Git commands. Do not run git init over this history.
+The page carries the subtle **DESIGNED BY THAI** hero credit, the **Ryanhuhut / 02.10.2026** footer mark, and a gold φ favicon. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for verification notes and [docs/EDITING_ASSETS.md](docs/EDITING_ASSETS.md) for optional motion-graphics capture ideas.

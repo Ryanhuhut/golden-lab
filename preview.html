@@ -28,6 +28,9 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .brand{color:var(--text);font-family:var(--sans);font-weight:800;letter-spacing:.24em;font-size:13px}
 .brand span{color:var(--gold)}
 .hero{display:flex;align-items:end;justify-content:space-between;gap:35px;padding:clamp(55px,7vw,104px) 0 52px}
+.hero-copy{position:relative}
+.hero-credit{position:absolute;left:0;bottom:calc(100% + 12px);white-space:nowrap;color:#8d8a82;font:9px var(--mono);letter-spacing:.2em}
+.hero-credit span{color:var(--gold)}
 .eyebrow{font:11px var(--mono);letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
 .hero h1{font-size:clamp(58px,8vw,128px);line-height:.92;letter-spacing:-.085em;margin:20px 0 0;font-weight:600}
 .hero h1 em{font-style:normal;color:var(--gold)}
@@ -328,6 +331,7 @@ html,body,.workspace,.control-panel{scrollbar-width:none}
 html{scrollbar-gutter:auto}
 html::-webkit-scrollbar,body::-webkit-scrollbar,.workspace::-webkit-scrollbar,.control-panel::-webkit-scrollbar{display:none;width:0;height:0}
 .creator-mark{display:inline-block;margin-left:clamp(12px,2.5vw,32px);color:#8b7654;letter-spacing:.12em;font-weight:500}
+.footer-date{margin-left:8px;color:#77746d;font-weight:400;white-space:nowrap}
 .control-panel input[type=range]::-webkit-slider-runnable-track{height:8px;border:1px solid #514939;border-radius:999px;background:linear-gradient(90deg,var(--gold) 0 var(--range-percent),#3b3934 var(--range-percent) 100%);box-shadow:inset 0 1px 2px #0009}
 .control-panel input[type=range]::-moz-range-track{height:8px;border:1px solid #514939;border-radius:999px;background:linear-gradient(90deg,var(--gold) 0 var(--range-percent),#3b3934 var(--range-percent) 100%);box-shadow:inset 0 1px 2px #0009}
 .control-panel input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-4px;border:2px solid #21190c;background:var(--gold-bright);box-shadow:0 0 0 1px #bd9144,0 2px 8px #0008}
@@ -721,9 +725,9 @@ const experiments = [
 function createOverview(open) {
   const overview=document.createElement('main');overview.className='overview';overview.innerHTML=`
     <header class="topline"><div class="brand">GOLDEN <span>LAB</span></div><div class="topline-right"><span>INTERACTIVE MATHEMATICS / VOL. 01</span><button class="appearance-button" type="button" data-appearance-toggle aria-label="Switch to True Black background">◐ <span>GRAPHITE</span></button></div></header>
-    <section class="hero"><div><div class="eyebrow">A visual laboratory of proportion</div><h1>Numbers<br>in <em>motion.</em></h1></div><div class="hero-aside"><div class="pascal-region" tabindex="0" role="button" aria-label="Reveal the Sierpiński triangle from Pascal's triangle"><canvas aria-hidden="true"></canvas><span class="pascal-caption">PASCAL → SIERPIŃSKI <span>HOVER TO REVEAL</span></span></div><p>Four experiments. One recurring idea. Explore the structures that emerge when a simple rule is allowed to move.</p></div></section>
+    <section class="hero"><div class="hero-copy"><div class="hero-credit">DESIGNED BY <span>THAI</span></div><div class="eyebrow">A visual laboratory of proportion</div><h1>Numbers<br>in <em>motion.</em></h1></div><div class="hero-aside"><div class="pascal-region" tabindex="0" role="button" aria-label="Reveal the Sierpiński triangle from Pascal's triangle"><canvas aria-hidden="true"></canvas><span class="pascal-caption">PASCAL → SIERPIŃSKI <span>HOVER TO REVEAL</span></span></div><p>Four experiments. One recurring idea. Explore the structures that emerge when a simple rule is allowed to move.</p></div></section>
     <div class="gallery-head"><span>SELECT AN EXPERIMENT</span><span>01 — 04</span></div><div class="gallery"></div>
-    <footer class="footer"><span>GOLDEN LAB / EST. 2026 <span class="creator-mark">Ryanhuhut</span></span><span>SCROLL · SELECT · EXPLORE</span></footer>`;
+    <footer class="footer"><span>GOLDEN LAB / EST. 2026 <span class="creator-mark">Ryanhuhut <span class="footer-date">/ 02.10.2026</span></span></span><span>SCROLL · SELECT · EXPLORE</span></footer>`;
   const gallery=overview.querySelector('.gallery');const canvases={};
   for(const item of experiments){const card=document.createElement('button');card.className='experiment-card';card.type='button';card.setAttribute('aria-label',`Open ${item.name}`);card.innerHTML=`<canvas class="card-canvas" aria-hidden="true"></canvas><span class="card-index">EXPERIMENT ${item.index}</span><span class="card-symbol">${item.symbol}</span><span class="card-info"><span><h2>${item.name}</h2><p>${item.description}</p></span><span class="open-hint">OPEN EXPERIMENT <span>↗</span></span></span>`;card.addEventListener('click',()=>open(item.id,card));gallery.append(card);canvases[item.id]=card.querySelector('canvas');}
   return {el:overview,canvases,pascalRegion:overview.querySelector('.pascal-region'),pascalCanvas:overview.querySelector('.pascal-region canvas')};

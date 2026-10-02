@@ -1,4 +1,4 @@
-# Project status — GOLDEN LAB v0.1
+# Project status — GOLDEN LAB v1.0
 
 ## Completed
 
@@ -10,7 +10,7 @@
 ## Verified automatically
 
 - npm test passes the existing mathematics, motion, theme, and Pascal-renderer checks.
-- JavaScript syntax checks, SVG XML parsing, preview regeneration, and git diff --check pass at handoff.
+- JavaScript syntax checks, preview regeneration, and git diff --check pass for the release.
 - The test suite checks Fibonacci/BigInt ratios, spiral continuity in both directions, phyllotaxis coordinates, Pascal parity/camera behavior, Petals timing, damping, and appearance transitions.
 
 ## Manual QA still recommended
@@ -21,5 +21,3 @@
 - Review the full Pascal reveal and reverse transition for visual continuity.
 - Check Golden Petals marker alignment, 10–20 second timing, Pause/Resume, and glow.
 - Exercise Fibonacci Mechanics wheel momentum, large-number readability, and both scroll directions.
-
-Firefox headless has exited with code **139** in the coding sandbox. Treat that as a development-environment limitation, not an established product bug; browser visual/console QA still needs a normal browser session. No deployment was performed in this handoff.

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 globalThis.matchMedia = () => ({matches:false});
-const [{buildSquares,arcData},{phyllotaxisPoint},{fib,ratio},{smoothDamp,GOLDEN_ANGLE},{pascalRows,isOddPascal},{stepPetalMotion,presentationMotion}] = await Promise.all([
+const [{buildSquares,arcData},{phyllotaxisPoint},{fib,ratio},{smoothDamp,GOLDEN_ANGLE},{pascalRows,isOddPascal,pascalCameraScale,PASCAL_SEQUENCE_DURATION,createPascalHero},{stepPetalMotion,presentationMotion}] = await Promise.all([
   import('../src/experiments/fibonacci.js'),
   import('../src/experiments/phyllotaxis.js'),
   import('../src/experiments/mechanics.js'),
@@ -39,6 +39,42 @@ test('Pascal coefficients and parity produce Sierpiński structure',()=>{
   }
   assert.equal(isOddPascal(7,3),true);
   assert.equal(isOddPascal(8,3),false);
+  assert.equal(isOddPascal(512,1),false);
+  assert.equal(isOddPascal(512,512),true);
+  assert.equal(isOddPascal(1023,511),true);
+});
+test('Pascal camera stays at the original scale, then accelerates outward to reveal 512+ rows',()=>{
+  assert.equal(pascalCameraScale(2.15),1);
+  const samples=[2.15,3.15,4.15,5.15,6.15,PASCAL_SEQUENCE_DURATION].map(pascalCameraScale);
+  for(let i=1;i<samples.length;i++)assert.ok(samples[i]<samples[i-1]);
+  const logTravel=samples.slice(1).map((scale,i)=>Math.log(samples[i]/samples[i+1]));
+  for(let i=1;i<logTravel.length;i++)assert.ok(logTravel[i]>logTravel[i-1]);
+  const visibleRows=(235-(235-23*9)/2)/(23*samples.at(-1));
+  assert.ok(visibleRows>512);
+});
+test('Pascal renderer keeps one apex and reveals cached row bands through the same camera',()=>{
+  const previousWindow=globalThis.window,previousOffscreen=globalThis.OffscreenCanvas;
+  globalThis.window={devicePixelRatio:1};
+  const calls=[];
+  const context={setTransform(){},save(){},restore(){},translate(x,y){calls.push(['apex',x,y])},scale(x){calls.push(['scale',x])},beginPath(){},moveTo(){},lineTo(){},stroke(){},fillRect(){},strokeRect(){},fillText(){},drawImage(){calls.push(['band'])}};
+  globalThis.OffscreenCanvas=class {constructor(width,height){this.width=width;this.height=height}getContext(){return {setTransform(){},fillRect(){}}}};
+  const canvas={width:0,height:0,getBoundingClientRect(){return {width:360,height:235}},getContext(){return context}};
+  const hero=createPascalHero(null,canvas,{interactive:false});
+  const drawAt=time=>{calls.length=0;hero.seek(time);hero.update(0);return {apex:calls.find(x=>x[0]==='apex'),scale:calls.find(x=>x[0]==='scale')?.[1],bands:calls.filter(x=>x[0]==='band').length}};
+  const initial=drawAt(0),near=drawAt(2.7),far=drawAt(PASCAL_SEQUENCE_DURATION),restored=drawAt(0);
+  assert.deepEqual(initial.apex,['apex',180,18.5]);
+  assert.deepEqual(near.apex,initial.apex);assert.deepEqual(far.apex,initial.apex);
+  assert.equal(initial.bands,0);assert.ok(near.bands>0);assert.equal(far.bands,3);assert.equal(restored.bands,0);
+  assert.ok(far.scale<near.scale);assert.equal(restored.scale,1);
+  hero.setTarget(true);
+  for(let i=0;i<330;i++){calls.length=0;hero.update(1/60)}
+  const beforeReverse=calls.find(x=>x[0]==='scale')[1];
+  hero.setTarget(false);calls.length=0;hero.update(1/60);
+  const afterReverse=calls.find(x=>x[0]==='scale')[1];
+  assert.ok(Math.abs(afterReverse-beforeReverse)<.01);
+  for(let i=0;i<500;i++){calls.length=0;hero.update(1/60)}
+  assert.equal(hero.time,0);assert.equal(hero.cameraScale,1);
+  globalThis.window=previousWindow;globalThis.OffscreenCanvas=previousOffscreen;
 });
 test('phyllotaxis uses the golden angle formula',()=>{
   const p=phyllotaxisPoint(100,GOLDEN_ANGLE,7.5);

@@ -1,5 +1,5 @@
 import { clamp, smoothDamp, reducedMotion } from '../core/animation.js';
-import { canvasSurface, clear, grid } from '../core/canvas.js';
+import { canvasSurface } from '../core/canvas.js';
 import { actions, rangeControl, section } from '../ui/controls.js';
 
 const MAX_INDEX=10000, SCALE=10n**40n, PHI_SCALED=16180339887498948482045868343656381177203n;
@@ -14,7 +14,7 @@ export function ratio(index){const numerator=fib(index),denominator=fib(index-1)
   return {numerator,denominator,decimal,closeness};
 }
 function previewDraw(ctx,w,h,time){
-  clear(ctx,w,h);grid(ctx,w,h,46);ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
+  ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(let k=-3;k<=3;k++){const index=Math.round(pos)+k;if(index<2)continue;const d=index-pos;ctx.globalAlpha=Math.max(0,1-Math.abs(d)*.25);ctx.fillStyle=Math.abs(d)<.5?'#f2ce78':'#a8a198';ctx.font=`${Math.round(24-Math.abs(d)*3)}px 'DM Mono',monospace`;ctx.fillText(short(fib(index),12),0,d*45)}
   ctx.globalAlpha=1;ctx.strokeStyle='#a7803a';ctx.beginPath();ctx.moveTo(-70,-24);ctx.lineTo(70,-24);ctx.moveTo(-70,24);ctx.lineTo(70,24);ctx.stroke();ctx.restore();
@@ -53,7 +53,7 @@ function animateEquation(stage,slots,values,direction){
   });
 }
 export function createMechanics({canvas,state,workspace,preview=false}){
-  if(preview){const surface=canvasSurface(canvas);return {update(dt,time){const {ctx,width:w,height:h}=surface.resize();if(w>1&&h>1)previewDraw(ctx,w,h,time)}}}
+  if(preview){const surface=canvasSurface(canvas);return {update(dt,time){const {ctx,width:w,height:h}=surface.resize();if(w>1&&h>1){surface.background(w,h,46);previewDraw(ctx,w,h,time)}}}}
   const body=workspace.body;body.classList.add('mechanics-body');
   const panel=workspace.panel,stage=document.createElement('div');stage.className='mechanics-stage';
   stage.innerHTML=`<div class="mechanics-roller-section"><div><h3>01 / THE SEQUENCE</h3><div class="wheel-wrap" tabindex="0" role="slider" aria-label="Fibonacci number wheel" aria-valuemin="2" aria-valuemax="10000"><div class="wheel-items"></div><div class="wheel-center"></div></div></div><div class="ratio-display"><div class="ratio-label">CONSECUTIVE RATIO</div><div class="ratio-fraction"></div><div class="ratio-value"></div><div class="phi-reference">φ ≈ 1.6180339887…</div><div class="ratio-note">The ratio converges toward φ. Every finite ratio remains an approximation.</div></div></div><div class="recurrence-section"><h3>02 / THE RECURRENCE</h3><div class="equation-stage"><span class="eq-slot result"></span><span class="eq-operator">=</span><span class="eq-slot previous"></span><span class="eq-operator">+</span><span class="eq-slot before"></span></div><div class="recurrence-caption">Fₙ = Fₙ₋₁ + Fₙ₋₂</div></div>`;
@@ -101,9 +101,10 @@ export function createMechanics({canvas,state,workspace,preview=false}){
   refresh(true);
   return {dispose(){events.abort();stage.remove();body.classList.remove('mechanics-body')},update(dt,time){
     if(!dragging){
-      if(state.playing&&time>state.manualUntil&&Math.abs(state.velocity)<.2){state.autoTimer+=dt*state.speed;if(state.autoTimer>1.18){state.autoTimer=0;state.velocity=3.3}}
-      if(Math.abs(state.velocity)>.55){state.position+=state.velocity*dt;state.velocity*=Math.exp(-3.25*dt)}
-      else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.23,dt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
+      const physicsDt=Math.min(dt,.05);
+      if(state.playing&&time>state.manualUntil&&Math.abs(state.velocity)<.2){state.autoTimer+=dt*state.speed;if(state.autoTimer>=1.18){state.autoTimer%=1.18;state.velocity=3.3}}
+      if(Math.abs(state.velocity)>.55){const decay=Math.exp(-3.25*physicsDt);state.position+=state.velocity*(1-decay)/3.25;state.velocity*=decay}
+      else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.23,physicsDt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
       state.position=clamp(state.position,2,MAX_INDEX);if(state.position===2||state.position===MAX_INDEX)state.velocity=0;
     }
     refresh();if(equation.clientWidth!==lastEquationWidth)fitNumbers();const nearest=Math.round(state.position);

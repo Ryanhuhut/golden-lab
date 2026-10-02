@@ -3,6 +3,7 @@ import { canvasBackground } from './theme.js';
 export function canvasSurface(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let width = 0, height = 0, ratio = 1;
+  let backgroundCanvas, backgroundKey = '';
   function resize() {
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -13,7 +14,22 @@ export function canvasSurface(canvas) {
     ctx.setTransform(dpr,0,0,dpr,0,0);
     return {ctx,width,height,ratio};
   }
-  return { ctx, resize, get width(){return width}, get height(){return height} };
+  function background(w,h,spacing,showGrid=true) {
+    if (!showGrid) { clear(ctx,w,h); return; }
+    const color=canvasBackground();
+    const key=`${canvas.width}:${canvas.height}:${w}:${h}:${ratio}:${spacing}:${color}`;
+    if (key!==backgroundKey) {
+      backgroundCanvas=backgroundCanvas || (typeof OffscreenCanvas==='function' ? new OffscreenCanvas(canvas.width,canvas.height) : document.createElement('canvas'));
+      backgroundCanvas.width=canvas.width; backgroundCanvas.height=canvas.height;
+      const layer=backgroundCanvas.getContext('2d');
+      layer.setTransform(ratio,0,0,ratio,0,0);
+      layer.fillStyle=color; layer.fillRect(0,0,w,h);
+      grid(layer,w,h,spacing);
+      backgroundKey=key;
+    }
+    ctx.drawImage(backgroundCanvas,0,0,w,h);
+  }
+  return { ctx, resize, background, get width(){return width}, get height(){return height} };
 }
 
 export function clear(ctx,w,h) { ctx.fillStyle=canvasBackground(); ctx.fillRect(0,0,w,h); }

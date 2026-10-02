@@ -72,14 +72,14 @@ function buildBands(bands,metrics,rowBudget){
 export function createPascalHero(region,canvas,{interactive=true}={}){
   const surface=canvasSurface(canvas);
   const motion={time:0,speed:0,acceleration:0,target:0,manual:false};
-  let bands=[],bandKey='',builtRows=0,lastFrame='';
+  let bands=[],bandKey='',builtRows=0,buildCredit=0,lastTime=-1,lastRows=-1,lastWidth=0,lastHeight=0,lastBackground='';
 
   function setTarget(reveal){motion.manual=false;motion.target=reveal?1:0}
   function syncBands(metrics){
     const key=metrics.stepX.toFixed(4)+':'+metrics.stepY.toFixed(4);
     if(key===bandKey)return;
     bands=DEEP_BANDS.map(spec=>createBand(spec,metrics));
-    bandKey=key;builtRows=0;lastFrame='';
+    bandKey=key;builtRows=0;buildCredit=0;lastTime=-1;
   }
   function prepare(){
     const {width,height}=surface.resize();if(width<2||height<2)return;
@@ -89,7 +89,7 @@ export function createPascalHero(region,canvas,{interactive=true}={}){
   // Fixed-time export can call seek(t), then update(0), for deterministic frames.
   function seek(seconds){
     motion.manual=true;motion.time=clamp(seconds,0,PASCAL_SEQUENCE_DURATION);
-    motion.speed=0;motion.acceleration=0;lastFrame='';
+    motion.speed=0;motion.acceleration=0;lastTime=-1;
     if(motion.time>ZOOM_START)prepare();
   }
   if(interactive){
@@ -106,36 +106,41 @@ export function createPascalHero(region,canvas,{interactive=true}={}){
       const atEnd=motion.target?motion.time>=PASCAL_SEQUENCE_DURATION:motion.time<=0;
       if(atEnd){motion.speed=0;motion.acceleration=0}
       else{
+        const previousSpeed=motion.speed;
         const next=smoothDamp(motion.speed,motion.target?1:-1,motion.acceleration,reducedMotion?.07:.22,dt);
         motion.speed=next.value;motion.acceleration=next.velocity;
-        motion.time=clamp(motion.time+motion.speed*dt,0,PASCAL_SEQUENCE_DURATION);
+        motion.time=clamp(motion.time+(previousSpeed+motion.speed)*.5*dt,0,PASCAL_SEQUENCE_DURATION);
       }
     }
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
     const metrics=geometry(w,h);syncBands(metrics);
-    if(builtRows<1024-rows.length)builtRows+=buildBands(bands,metrics,64);
-    const frameKey=canvas.width+':'+canvas.height+':'+motion.time.toFixed(4)+':'+builtRows+':'+canvasBackground();
-    if(frameKey===lastFrame)return;lastFrame=frameKey;
+    if(builtRows<1024-rows.length){
+      buildCredit+=dt*64*60;
+      const budget=Math.min(128,Math.floor(buildCredit));
+      if(budget){builtRows+=buildBands(bands,metrics,budget);buildCredit-=budget}
+    }
+    const background=canvasBackground();
+    if(motion.time===lastTime&&builtRows===lastRows&&canvas.width===lastWidth&&canvas.height===lastHeight&&background===lastBackground)return;
+    lastTime=motion.time;lastRows=builtRows;lastWidth=canvas.width;lastHeight=canvas.height;lastBackground=background;
     clear(ctx,w,h);
     const t=motion.time,focus=smoothstep(0,.45,t),retract=smoothstep(.35,1.1,t);
     const encode=smoothstep(1.1,1.8,t),numberFade=smoothstep(1.65,ZOOM_START,t);
     const cameraScale=pascalCameraScale(t);
     const {stepX,stepY,apexX,apexY,cellW,cellH}=metrics;
-    const point=(r,k)=>({x:(k-r/2)*stepX,y:r*stepY});
     ctx.save();ctx.translate(apexX,apexY);ctx.scale(cameraScale,cameraScale);
 
     // The shallow diagonal guides still withdraw toward their left endpoints.
     for(let diagonal=4;diagonal<=10;diagonal++){
-      const cells=[];
-      for(let k=0;k<=Math.floor(diagonal/2);k++){const r=diagonal-k;if(r<rows.length&&k<=r)cells.push(point(r,k))}
-      if(cells.length<2)continue;
-      const left=cells[0],right=cells[cells.length-1],amount=1-retract;
+      let leftX,leftY,rightX,rightY,count=0;
+      for(let k=0;k<=Math.floor(diagonal/2);k++){const r=diagonal-k;if(r<rows.length&&k<=r){const x=(k-r/2)*stepX,y=r*stepY;if(count===0){leftX=x;leftY=y}rightX=x;rightY=y;count++}}
+      if(count<2)continue;
+      const amount=1-retract;
       if(amount<=0)continue;
-      ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(left.x+(right.x-left.x)*amount,left.y+(right.y-left.y)*amount);
+      ctx.beginPath();ctx.moveTo(leftX,leftY);ctx.lineTo(leftX+(rightX-leftX)*amount,leftY+(rightY-leftY)*amount);
       ctx.strokeStyle='rgba(218,170,80,'+((.34+.23*focus)*(1-retract))+')';ctx.lineWidth=1;ctx.stroke();
     }
     for(let r=0;r<rows.length;r++)for(let k=0;k<=r;k++){
-      const {x,y}=point(r,k),odd=isOddPascal(r,k);
+      const x=(k-r/2)*stepX,y=r*stepY,odd=isOddPascal(r,k);
       ctx.fillStyle=odd?'rgba(250,250,250,'+encode+')':'rgba(0,0,0,'+encode+')';
       ctx.fillRect(x-cellW/2,y-cellH/2,cellW,cellH);
       ctx.strokeStyle='rgba(240,240,240,'+(.085+.14*focus)*(1-encode)+')';ctx.lineWidth=.65;ctx.strokeRect(x-cellW/2,y-cellH/2,cellW,cellH);

@@ -48,7 +48,7 @@ npm test runs the Node mathematical and renderer checks in tests/math.test.js. A
 | scripts/build-standalone.mjs, preview.html | Generator and generated direct-file preview. Edit source files, then regenerate preview.html. |
 | tests/math.test.js | Automated mathematical, motion, theme, and Pascal renderer checks. |
 
-Rendering runs through a shared requestAnimationFrame loop with capped frame delta and a page-visibility pause. Experiments use Canvas 2D instead of per-point DOM nodes. Motion helpers provide springs, damping, and easing; scripted Petals motion uses a mostly steady time curve. Canvas backing resolution is capped at DPR 2. Graphite is the default appearance; the UI also offers True Black.
+Rendering runs through a shared requestAnimationFrame loop at the display refresh rate, with elapsed-time motion and a page-visibility pause. Experiments use Canvas 2D instead of per-point DOM nodes. Motion helpers provide springs, damping, and easing; scripted Petals motion uses a mostly steady time curve. Canvas backing resolution is capped at DPR 2. Static stage grids are cached, and the three Canvas workspace experiments offer a Grid setting that remains in memory while the page is open. Graphite is the default appearance; the UI also offers True Black.
 
 ## Branding and handoff
 

@@ -1,6 +1,6 @@
 import { GOLDEN_ANGLE, clamp, smoothDamp, reducedMotion, TAU } from '../core/animation.js';
-import { canvasSurface, clear, grid } from '../core/canvas.js';
-import { actions, rangeControl, section } from '../ui/controls.js';
+import { canvasSurface } from '../core/canvas.js';
+import { actions, gridSettings, rangeControl, section } from '../ui/controls.js';
 import { angleSlider } from '../ui/slider.js';
 import { canvasBackground } from '../core/theme.js';
 
@@ -26,11 +26,11 @@ export function createPhyllotaxis({canvas,state,workspace,preview=false}){
     appearance.append(rangeControl('Glow',state.glow,0,1,.01,v=>state.glow=v,v=>`${Math.round(v*100)}%`).el);
     appearance.append(rangeControl('Flicker',state.flicker,0,1,.01,v=>state.flicker=v,v=>`${Math.round(v*100)}%`).el);panel.append(appearance);
     const playback=section('03 / Growth');playback.append(actions([['Grow',()=>{if(state.progress>=state.points)state.progress=0;state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.playing=false;state.progress=0}],['Replay',()=>{state.progress=0;state.playing=true}]]));
-    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback);
+    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback,gridSettings(state));
   }
   return {dispose(){overlay?.remove();workspace?.stage.classList.remove('has-angle-control')},update(dt,time){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
-    if(local.playing){local.progress+=dt*local.speed*(preview?95:240);if(local.progress>=local.points){if(preview){local.progress=0;previewCover=1}else{local.progress=local.points;local.playing=false}}}
+    if(local.playing){local.progress+=dt*local.speed*(preview?95:240);if(local.progress>=local.points){if(preview){local.progress%=local.points;previewCover=1}else{local.progress=local.points;local.playing=false}}}
     const next=smoothDamp(local.angle,local.targetAngle,local.angleVelocity,reducedMotion?.08:.34,dt);local.angle=next.value;local.angleVelocity=next.velocity;
     if(Math.abs(local.angle-local.targetAngle)<.0003&&Math.abs(local.angleVelocity)<.003){local.angle=local.targetAngle;local.angleVelocity=0}
     const count=Math.min(local.points,Math.ceil(local.progress));
@@ -42,12 +42,12 @@ export function createPhyllotaxis({canvas,state,workspace,preview=false}){
     const s=smoothDamp(scale.value,targetScale,scale.velocity,.4,dt);scale.value=s.value;scale.velocity=s.velocity;
     const dotRadius=local.dotSize*Math.max(.55,Math.min(1.5,scale.value));
     if(!cached||Math.abs(dotRadius-cachedSize)>.4||Math.abs(local.glow-cachedGlow)>.08){cached=sprite(dotRadius,local.glow);cachedSize=dotRadius;cachedGlow=local.glow}
-    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    surface.background(w,h,preview?48:54,state.showGrid);
     ctx.save();ctx.translate(w/2,preview?h/2:h*(h<440?.34:.43));
     for(let n=0;n<count;n++){
       // The canonical phyllotaxis rule: no random positions.
-      const point=phyllotaxisPoint(n,local.angle,local.spacing);
-      const x=point.x*scale.value,y=point.y*scale.value;
+      const theta=n*local.angle*Math.PI/180,r=local.spacing*Math.sqrt(n)*scale.value;
+      const x=r*Math.cos(theta),y=r*Math.sin(theta);
       const age=clamp(local.progress-n,0,1),spawn=age*age*(3-2*age);
       if(spawn<=0)continue;
       const shimmer=1-local.flicker*.12*(.5+.5*Math.sin(n*12.9898+time*19))*Math.max(0,1-age);

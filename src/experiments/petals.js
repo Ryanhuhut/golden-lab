@@ -1,6 +1,6 @@
 import { GOLDEN_ANGLE, TAU, clamp, smoothDamp, lerp, reducedMotion } from '../core/animation.js';
-import { canvasSurface, clear, grid } from '../core/canvas.js';
-import { actions, numberControl, rangeControl, section } from '../ui/controls.js';
+import { canvasSurface } from '../core/canvas.js';
+import { actions, gridControl, numberControl, rangeControl, section } from '../ui/controls.js';
 import { angleSlider } from '../ui/slider.js';
 
 function petalPath(ctx,length,width){
@@ -47,24 +47,26 @@ export function presentationMotion(angle,duration){
 }
 export function stepPetalMotion(state,dt){
   const motion=state.motion;if(!motion||motion.paused||motion.phase==='idle')return;
-  if(motion.phase==='hold'){
-    state.currentAngle=120;state.targetAngle=120;state.angleVelocity=0;
-    motion.elapsed+=dt;
-    if(motion.elapsed>=motion.holdDuration){motion.phase='advance';motion.elapsed-=motion.holdDuration;motion.from=120}
-    return;
-  }
-  motion.elapsed+=dt;
-  const returning=motion.phase==='return',destination=returning?120:GOLDEN_ANGLE;
-  const duration=returning?motion.returnDuration:motion.phase==='run'?motion.duration:motion.advanceDuration;
-  const fraction=clamp(motion.elapsed/Math.max(.01,duration),0,1);
   const previous=state.currentAngle;
-  state.currentAngle=lerp(motion.from,destination,calmProgress(fraction));
+  let remaining=dt;
+  while(motion.phase!=='idle'){
+    const phase=motion.phase;
+    const duration=phase==='return'?motion.returnDuration:phase==='hold'?motion.holdDuration:phase==='run'?motion.duration:motion.advanceDuration;
+    const travel=Math.min(remaining,Math.max(0,duration-motion.elapsed));
+    motion.elapsed+=travel;remaining-=travel;
+    if(phase==='hold')state.currentAngle=120;
+    else state.currentAngle=lerp(motion.from,phase==='return'?120:GOLDEN_ANGLE,calmProgress(motion.elapsed/Math.max(.01,duration)));
+    if(motion.elapsed<duration-1e-9)break;
+    motion.elapsed=duration;
+    if(phase!=='hold')state.currentAngle=phase==='return'?120:GOLDEN_ANGLE;
+    if(phase==='return'){motion.phase='hold';motion.elapsed=0;motion.from=120}
+    else if(phase==='hold'){motion.phase='advance';motion.elapsed=0;motion.from=120}
+    else {motion.phase='idle';state.playing=false}
+    if(remaining<=0)break;
+  }
   state.targetAngle=state.currentAngle;
   state.angleVelocity=dt>0?(state.currentAngle-previous)/dt:0;
-  if(fraction>=1){
-    state.currentAngle=destination;state.targetAngle=destination;state.angleVelocity=0;
-    if(returning){motion.phase='hold';motion.elapsed=0}else{motion.phase='idle';state.playing=false}
-  }
+  if(motion.phase==='idle'||motion.phase==='hold')state.angleVelocity=0;
 }
 
 export function createPetals({canvas,state,workspace,preview=false}){
@@ -90,14 +92,14 @@ export function createPetals({canvas,state,workspace,preview=false}){
     playback.append(actions([['Animate',startDemo,'primary'],['Replay',startDemo]]));
     panel.append(playback);
     const details=document.createElement('details');details.className='advanced-settings';
-    details.innerHTML='<summary>Settings <span>FORM / LIGHT</span></summary>';
+    details.innerHTML='<summary>Settings <span>FORM / LIGHT / DISPLAY</span></summary>';
     const form=section('03 / Flower Form');
     form.append(rangeControl('Petal Length',state.petalLength,80,280,1,v=>state.petalLength=v,v=>v+' u').el);
     form.append(rangeControl('Petal Width',state.petalWidth,8,70,1,v=>state.petalWidth=v,v=>v+' u').el);
     form.append(rangeControl('Center Radius',state.centerRadius,5,35,1,v=>state.centerRadius=v,v=>v+' u').el);
     form.append(rangeControl('Glow Strength',state.glow,0,1,.01,v=>state.glow=v,v=>Math.round(v*100)+'%').el);
     form.append(rangeControl('Rotation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>v.toFixed(1)+'×').el);
-    details.append(form);panel.append(details);
+    details.append(form,gridControl(state));panel.append(details);
   }
   return {dispose(){overlay?.remove();workspace?.stage.classList.remove('has-angle-control')},update(dt,time){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
@@ -119,7 +121,7 @@ export function createPetals({canvas,state,workspace,preview=false}){
     const proximity=Math.exp(-Math.pow(Math.abs(angle-GOLDEN_ANGLE)/5.5,2));
     if(preview)pulse=proximity*(.5+.5*Math.sin(time*2.8));
     else {const atGolden=proximity>.997;if(atGolden&&!wasGolden)state.goldenPulse=1;wasGolden=atGolden;state.goldenPulse*=Math.exp(-dt*3.2);pulse=proximity*state.goldenPulse;}
-    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    surface.background(w,h,preview?48:54,state.showGrid);
     drawFlower(ctx,w,h,proximity,{count,angle,length:preview?180:state.petalLength,width:preview?35:state.petalWidth,center:preview?16:state.centerRadius,glow,rotation,pulse,preview});
     if(!preview){slider.update(proximity);status.textContent=Math.abs(angle-GOLDEN_ANGLE)<.055?'φ  GOLDEN ANGLE':`ANGLE / ${angle.toFixed(1)}°`;}
   }};

@@ -38,11 +38,12 @@ export function animateValue(state, target, dt, time = .28) {
 }
 
 export function loop(callback) {
-  let previous = performance.now(), frame = 0;
+  let previous = performance.now();
+  document.addEventListener('visibilitychange',()=>{previous=performance.now()});
   function tick(now) {
-    const dt = Math.min((now-previous)/1000, .033);
+    const dt = Math.max(0,(now-previous)/1000);
     previous = now;
-    if (!document.hidden) callback(dt, now/1000, frame++);
+    if (!document.hidden) callback(dt, now/1000);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);

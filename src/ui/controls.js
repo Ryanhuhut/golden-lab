@@ -34,3 +34,18 @@ export function toggleControl(label,value,onChange){
   const input=document.createElement('input');input.type='checkbox';input.checked=value;input.addEventListener('change',()=>onChange(input.checked));
   const slider=document.createElement('span');slider.className='toggle-track';wrap.append(text,input,slider);return {el:wrap,set(v){input.checked=v}};
 }
+export function gridSettings(state){
+  const details=document.createElement('details');details.className='advanced-settings';
+  details.innerHTML='<summary>Settings <span>DISPLAY</span></summary>';
+  details.append(gridControl(state));
+  return details;
+}
+export function gridControl(state){
+  const display=section('Display');
+  const toggle=toggleControl('Grid',state.showGrid,v=>{state.showGrid=v;readout.textContent=v?'ON':'OFF'});
+  toggle.el.querySelector('input').setAttribute('aria-label','Grid');
+  const readout=document.createElement('span');readout.className='toggle-state';readout.textContent=state.showGrid?'ON':'OFF';
+  toggle.el.insertBefore(readout,toggle.el.querySelector('input'));
+  display.append(toggle.el);
+  return display;
+}

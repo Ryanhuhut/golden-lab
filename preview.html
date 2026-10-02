@@ -94,6 +94,7 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 .toggle-control input:checked+.toggle-track{background:#88652f}
 .toggle-control input:checked+.toggle-track:after{background:#ffe2a0;transform:translateX(14px)}
 .toggle-control input:focus-visible+.toggle-track{outline:2px solid var(--gold);outline-offset:3px}
+.toggle-state{margin-left:auto;margin-right:10px;color:var(--gold);font:10px var(--mono);letter-spacing:.08em}
 
 .angle-control{margin:17px 0 30px;--angle-glow:0}
 .angle-readout{font:16px var(--mono);color:var(--gold-bright);font-variant-numeric:tabular-nums}
@@ -380,11 +381,12 @@ function animateValue(state, target, dt, time = .28) {
 }
 
 function loop(callback) {
-  let previous = performance.now(), frame = 0;
+  let previous = performance.now();
+  document.addEventListener('visibilitychange',()=>{previous=performance.now()});
   function tick(now) {
-    const dt = Math.min((now-previous)/1000, .033);
+    const dt = Math.max(0,(now-previous)/1000);
     previous = now;
-    if (!document.hidden) callback(dt, now/1000, frame++);
+    if (!document.hidden) callback(dt, now/1000);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -415,6 +417,7 @@ function appearanceMode(){return appearance.mode}
 function canvasSurface(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let width = 0, height = 0, ratio = 1;
+  let backgroundCanvas, backgroundKey = '';
   function resize() {
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -425,7 +428,22 @@ function canvasSurface(canvas) {
     ctx.setTransform(dpr,0,0,dpr,0,0);
     return {ctx,width,height,ratio};
   }
-  return { ctx, resize, get width(){return width}, get height(){return height} };
+  function background(w,h,spacing,showGrid=true) {
+    if (!showGrid) { clear(ctx,w,h); return; }
+    const color=canvasBackground();
+    const key=`${canvas.width}:${canvas.height}:${w}:${h}:${ratio}:${spacing}:${color}`;
+    if (key!==backgroundKey) {
+      backgroundCanvas=backgroundCanvas || (typeof OffscreenCanvas==='function' ? new OffscreenCanvas(canvas.width,canvas.height) : document.createElement('canvas'));
+      backgroundCanvas.width=canvas.width; backgroundCanvas.height=canvas.height;
+      const layer=backgroundCanvas.getContext('2d');
+      layer.setTransform(ratio,0,0,ratio,0,0);
+      layer.fillStyle=color; layer.fillRect(0,0,w,h);
+      grid(layer,w,h,spacing);
+      backgroundKey=key;
+    }
+    ctx.drawImage(backgroundCanvas,0,0,w,h);
+  }
+  return { ctx, resize, background, get width(){return width}, get height(){return height} };
 }
 
 function clear(ctx,w,h) { ctx.fillStyle=canvasBackground(); ctx.fillRect(0,0,w,h); }
@@ -472,6 +490,21 @@ function toggleControl(label,value,onChange){
   const wrap=document.createElement('label'); wrap.className='toggle-control'; const text=document.createElement('span');text.textContent=label;
   const input=document.createElement('input');input.type='checkbox';input.checked=value;input.addEventListener('change',()=>onChange(input.checked));
   const slider=document.createElement('span');slider.className='toggle-track';wrap.append(text,input,slider);return {el:wrap,set(v){input.checked=v}};
+}
+function gridSettings(state){
+  const details=document.createElement('details');details.className='advanced-settings';
+  details.innerHTML='<summary>Settings <span>DISPLAY</span></summary>';
+  details.append(gridControl(state));
+  return details;
+}
+function gridControl(state){
+  const display=section('Display');
+  const toggle=toggleControl('Grid',state.showGrid,v=>{state.showGrid=v;readout.textContent=v?'ON':'OFF'});
+  toggle.el.querySelector('input').setAttribute('aria-label','Grid');
+  const readout=document.createElement('span');readout.className='toggle-state';readout.textContent=state.showGrid?'ON':'OFF';
+  toggle.el.insertBefore(readout,toggle.el.querySelector('input'));
+  display.append(toggle.el);
+  return display;
 }
 
 
@@ -572,14 +605,14 @@ function buildBands(bands,metrics,rowBudget){
 function createPascalHero(region,canvas,{interactive=true}={}){
   const surface=canvasSurface(canvas);
   const motion={time:0,speed:0,acceleration:0,target:0,manual:false};
-  let bands=[],bandKey='',builtRows=0,lastFrame='';
+  let bands=[],bandKey='',builtRows=0,buildCredit=0,lastTime=-1,lastRows=-1,lastWidth=0,lastHeight=0,lastBackground='';
 
   function setTarget(reveal){motion.manual=false;motion.target=reveal?1:0}
   function syncBands(metrics){
     const key=metrics.stepX.toFixed(4)+':'+metrics.stepY.toFixed(4);
     if(key===bandKey)return;
     bands=DEEP_BANDS.map(spec=>createBand(spec,metrics));
-    bandKey=key;builtRows=0;lastFrame='';
+    bandKey=key;builtRows=0;buildCredit=0;lastTime=-1;
   }
   function prepare(){
     const {width,height}=surface.resize();if(width<2||height<2)return;
@@ -589,7 +622,7 @@ function createPascalHero(region,canvas,{interactive=true}={}){
   // Fixed-time export can call seek(t), then update(0), for deterministic frames.
   function seek(seconds){
     motion.manual=true;motion.time=clamp(seconds,0,PASCAL_SEQUENCE_DURATION);
-    motion.speed=0;motion.acceleration=0;lastFrame='';
+    motion.speed=0;motion.acceleration=0;lastTime=-1;
     if(motion.time>ZOOM_START)prepare();
   }
   if(interactive){
@@ -606,36 +639,41 @@ function createPascalHero(region,canvas,{interactive=true}={}){
       const atEnd=motion.target?motion.time>=PASCAL_SEQUENCE_DURATION:motion.time<=0;
       if(atEnd){motion.speed=0;motion.acceleration=0}
       else{
+        const previousSpeed=motion.speed;
         const next=smoothDamp(motion.speed,motion.target?1:-1,motion.acceleration,reducedMotion?.07:.22,dt);
         motion.speed=next.value;motion.acceleration=next.velocity;
-        motion.time=clamp(motion.time+motion.speed*dt,0,PASCAL_SEQUENCE_DURATION);
+        motion.time=clamp(motion.time+(previousSpeed+motion.speed)*.5*dt,0,PASCAL_SEQUENCE_DURATION);
       }
     }
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
     const metrics=geometry(w,h);syncBands(metrics);
-    if(builtRows<1024-rows.length)builtRows+=buildBands(bands,metrics,64);
-    const frameKey=canvas.width+':'+canvas.height+':'+motion.time.toFixed(4)+':'+builtRows+':'+canvasBackground();
-    if(frameKey===lastFrame)return;lastFrame=frameKey;
+    if(builtRows<1024-rows.length){
+      buildCredit+=dt*64*60;
+      const budget=Math.min(128,Math.floor(buildCredit));
+      if(budget){builtRows+=buildBands(bands,metrics,budget);buildCredit-=budget}
+    }
+    const background=canvasBackground();
+    if(motion.time===lastTime&&builtRows===lastRows&&canvas.width===lastWidth&&canvas.height===lastHeight&&background===lastBackground)return;
+    lastTime=motion.time;lastRows=builtRows;lastWidth=canvas.width;lastHeight=canvas.height;lastBackground=background;
     clear(ctx,w,h);
     const t=motion.time,focus=smoothstep(0,.45,t),retract=smoothstep(.35,1.1,t);
     const encode=smoothstep(1.1,1.8,t),numberFade=smoothstep(1.65,ZOOM_START,t);
     const cameraScale=pascalCameraScale(t);
     const {stepX,stepY,apexX,apexY,cellW,cellH}=metrics;
-    const point=(r,k)=>({x:(k-r/2)*stepX,y:r*stepY});
     ctx.save();ctx.translate(apexX,apexY);ctx.scale(cameraScale,cameraScale);
 
     // The shallow diagonal guides still withdraw toward their left endpoints.
     for(let diagonal=4;diagonal<=10;diagonal++){
-      const cells=[];
-      for(let k=0;k<=Math.floor(diagonal/2);k++){const r=diagonal-k;if(r<rows.length&&k<=r)cells.push(point(r,k))}
-      if(cells.length<2)continue;
-      const left=cells[0],right=cells[cells.length-1],amount=1-retract;
+      let leftX,leftY,rightX,rightY,count=0;
+      for(let k=0;k<=Math.floor(diagonal/2);k++){const r=diagonal-k;if(r<rows.length&&k<=r){const x=(k-r/2)*stepX,y=r*stepY;if(count===0){leftX=x;leftY=y}rightX=x;rightY=y;count++}}
+      if(count<2)continue;
+      const amount=1-retract;
       if(amount<=0)continue;
-      ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(left.x+(right.x-left.x)*amount,left.y+(right.y-left.y)*amount);
+      ctx.beginPath();ctx.moveTo(leftX,leftY);ctx.lineTo(leftX+(rightX-leftX)*amount,leftY+(rightY-leftY)*amount);
       ctx.strokeStyle='rgba(218,170,80,'+((.34+.23*focus)*(1-retract))+')';ctx.lineWidth=1;ctx.stroke();
     }
     for(let r=0;r<rows.length;r++)for(let k=0;k<=r;k++){
-      const {x,y}=point(r,k),odd=isOddPascal(r,k);
+      const x=(k-r/2)*stepX,y=r*stepY,odd=isOddPascal(r,k);
       ctx.fillStyle=odd?'rgba(250,250,250,'+encode+')':'rgba(0,0,0,'+encode+')';
       ctx.fillRect(x-cellW/2,y-cellH/2,cellW,cellH);
       ctx.strokeStyle='rgba(240,240,240,'+(.085+.14*focus)*(1-encode)+')';ctx.lineWidth=.65;ctx.strokeRect(x-cellW/2,y-cellH/2,cellW,cellH);
@@ -666,9 +704,9 @@ function createPascalHero(region,canvas,{interactive=true}={}){
 const DEBUG = new URLSearchParams(location.search).has('debug');
 const state = {
   appearance:'graphite',
-  fibonacci:{steps:12,speed:1,lineWidth:1.5,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:true,playing:true,progress:0},
-  phyllotaxis:{points:700,angle:GOLDEN_ANGLE,targetAngle:GOLDEN_ANGLE,angleVelocity:0,spacing:7.5,dotSize:2.6,speed:1,glow:.55,flicker:.15,playing:true,progress:0},
-  petals:{petalCount:15,currentCount:15,targetCount:15,currentAngle:120,targetAngle:120,angleVelocity:0,petalLength:190,petalWidth:34,centerRadius:17,glow:.45,speed:1,duration:10,motion:{phase:'idle',elapsed:0,from:120,paused:false},playing:false,rotation:0,goldenPulse:0},
+  fibonacci:{showGrid:true,steps:12,speed:1,lineWidth:1.5,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:true,playing:true,progress:0},
+  phyllotaxis:{showGrid:true,points:700,angle:GOLDEN_ANGLE,targetAngle:GOLDEN_ANGLE,angleVelocity:0,spacing:7.5,dotSize:2.6,speed:1,glow:.55,flicker:.15,playing:true,progress:0},
+  petals:{showGrid:true,petalCount:15,currentCount:15,targetCount:15,currentAngle:120,targetAngle:120,angleVelocity:0,petalLength:190,petalWidth:34,centerRadius:17,glow:.45,speed:1,duration:10,motion:{phase:'idle',elapsed:0,from:120,paused:false},playing:false,rotation:0,goldenPulse:0},
   mechanics:{position:11,velocity:0,activeIndex:11,playing:false,speed:1,autoTimer:0,manualUntil:0}
 };
 
@@ -762,6 +800,7 @@ function createFibonacci({canvas,state,workspace,preview=false}){
   const surface=canvasSurface(canvas),local=preview?{steps:8,speed:.75,lineWidth:1,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:false,playing:true,progress:0}:state;
   let squares=buildSquares(local.steps),camera={x:{value:.5,velocity:0},y:{value:.5,velocity:0},scale:{value:1,velocity:0}},previewCover=0,cameraInitialized=false;
   function resetTimeline(play){local.progress=0;local.playing=play;camera.x={value:.5,velocity:0};camera.y={value:.5,velocity:0};camera.scale={value:Math.max(1,Math.min(surface.width,surface.height)*.73),velocity:0};cameraInitialized=true}
+  function dampCamera(axis,target,dt){const next=smoothDamp(axis.value,target,axis.velocity,reducedMotion?.08:.42,dt);axis.value=next.value;axis.velocity=next.velocity}
   if(!preview){const panel=workspace.panel,geometry=section('01 / Sequence');
     geometry.append(numberControl('Steps',state.steps,1,100,1,v=>{state.steps=v;squares=buildSquares(v);state.progress=Math.min(state.progress,v)}).el);
     geometry.append(rangeControl('Animation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);
@@ -769,20 +808,18 @@ function createFibonacci({canvas,state,workspace,preview=false}){
     const direction=document.createElement('div');direction.className='control';direction.innerHTML='<span class="control-label">Direction</span><div class="actions"><button class="button" type="button" data-dir="clockwise">Clockwise</button><button class="button" type="button" data-dir="counterclockwise">Counterclockwise</button></div>';
     for(const b of direction.querySelectorAll('button')){b.addEventListener('click',()=>{state.direction=b.dataset.dir;sync()})}function sync(){for(const b of direction.querySelectorAll('button'))b.classList.toggle('primary',b.dataset.dir===state.direction)}sync();geometry.append(direction);panel.append(geometry);
     const layers=section('02 / Layers');for(const [label,key] of [['Squares','showSquares'],['Spiral','showSpiral'],['Numbers','showNumbers']])layers.append(toggleControl(label,state[key],v=>state[key]=v).el);panel.append(layers);
-    const playback=section('03 / Timeline');playback.append(actions([['Run',()=>{if(state.progress>=state.steps)resetTimeline(true);else state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>resetTimeline(false)],['Replay',()=>resetTimeline(true)]]));panel.append(playback);
+    const playback=section('03 / Timeline');playback.append(actions([['Run',()=>{if(state.progress>=state.steps)resetTimeline(true);else state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>resetTimeline(false)],['Replay',()=>resetTimeline(true)]]));panel.append(playback,gridSettings(state));
   }
   return {get cameraScale(){return camera.scale.value},update(dt){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
-    if(local.playing){local.progress+=dt*local.speed*1.1;if(local.progress>=local.steps){if(preview){resetTimeline(true);previewCover=1}else{local.progress=local.steps;local.playing=false}}}
+    if(local.playing){local.progress+=dt*local.speed*1.1;if(local.progress>=local.steps){if(preview){const remainder=local.progress%local.steps;resetTimeline(true);local.progress=remainder;previewCover=1}else{local.progress=local.steps;local.playing=false}}}
     const progress=clamp(local.progress,0,local.steps),visible=Math.max(1,Math.min(squares.length,Math.ceil(progress)));
     const b=extent(squares,visible),bw=Math.max(1,b.maxX-b.minX),bh=Math.max(1,b.maxY-b.minY);
     const targetScale=Math.min(w/bw,h/bh)*(preview?.71:.73);
     const targetX=(b.minX+b.maxX)/2,targetY=(b.minY+b.maxY)/2;
     if(!cameraInitialized){camera.x.value=targetX;camera.y.value=targetY;camera.scale.value=targetScale;cameraInitialized=true}
-    for(const [axis,target] of [['x',targetX],['y',targetY],['scale',targetScale]]){
-      const next=smoothDamp(camera[axis].value,target,camera[axis].velocity,reducedMotion?.08:.42,dt);camera[axis].value=next.value;camera[axis].velocity=next.velocity;
-    }
-    clear(ctx,w,h);grid(ctx,w,h,preview?44:54);
+    dampCamera(camera.x,targetX,dt);dampCamera(camera.y,targetY,dt);dampCamera(camera.scale,targetScale,dt);
+    surface.background(w,h,preview?44:54,state.showGrid);
     draw(ctx,w,h,squares,progress,camera,local);
     if(preview){const closing=clamp((progress-(local.steps-.35))/.35,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.globalAlpha=Math.max(closing,previewCover);ctx.fillStyle=canvasBackground();ctx.fillRect(0,0,w,h);ctx.globalAlpha=1}
   }};
@@ -817,11 +854,11 @@ function createPhyllotaxis({canvas,state,workspace,preview=false}){
     appearance.append(rangeControl('Glow',state.glow,0,1,.01,v=>state.glow=v,v=>`${Math.round(v*100)}%`).el);
     appearance.append(rangeControl('Flicker',state.flicker,0,1,.01,v=>state.flicker=v,v=>`${Math.round(v*100)}%`).el);panel.append(appearance);
     const playback=section('03 / Growth');playback.append(actions([['Grow',()=>{if(state.progress>=state.points)state.progress=0;state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.playing=false;state.progress=0}],['Replay',()=>{state.progress=0;state.playing=true}]]));
-    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback);
+    const golden=document.createElement('button');golden.type='button';golden.className='button primary';golden.textContent='φ  ANIMATE TO GOLDEN ANGLE';golden.style.width='100%';golden.style.marginTop='10px';golden.addEventListener('click',()=>state.targetAngle=GOLDEN_ANGLE);playback.append(golden);panel.append(playback,gridSettings(state));
   }
   return {dispose(){overlay?.remove();workspace?.stage.classList.remove('has-angle-control')},update(dt,time){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
-    if(local.playing){local.progress+=dt*local.speed*(preview?95:240);if(local.progress>=local.points){if(preview){local.progress=0;previewCover=1}else{local.progress=local.points;local.playing=false}}}
+    if(local.playing){local.progress+=dt*local.speed*(preview?95:240);if(local.progress>=local.points){if(preview){local.progress%=local.points;previewCover=1}else{local.progress=local.points;local.playing=false}}}
     const next=smoothDamp(local.angle,local.targetAngle,local.angleVelocity,reducedMotion?.08:.34,dt);local.angle=next.value;local.angleVelocity=next.velocity;
     if(Math.abs(local.angle-local.targetAngle)<.0003&&Math.abs(local.angleVelocity)<.003){local.angle=local.targetAngle;local.angleVelocity=0}
     const count=Math.min(local.points,Math.ceil(local.progress));
@@ -833,12 +870,12 @@ function createPhyllotaxis({canvas,state,workspace,preview=false}){
     const s=smoothDamp(scale.value,targetScale,scale.velocity,.4,dt);scale.value=s.value;scale.velocity=s.velocity;
     const dotRadius=local.dotSize*Math.max(.55,Math.min(1.5,scale.value));
     if(!cached||Math.abs(dotRadius-cachedSize)>.4||Math.abs(local.glow-cachedGlow)>.08){cached=sprite(dotRadius,local.glow);cachedSize=dotRadius;cachedGlow=local.glow}
-    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    surface.background(w,h,preview?48:54,state.showGrid);
     ctx.save();ctx.translate(w/2,preview?h/2:h*(h<440?.34:.43));
     for(let n=0;n<count;n++){
       // The canonical phyllotaxis rule: no random positions.
-      const point=phyllotaxisPoint(n,local.angle,local.spacing);
-      const x=point.x*scale.value,y=point.y*scale.value;
+      const theta=n*local.angle*Math.PI/180,r=local.spacing*Math.sqrt(n)*scale.value;
+      const x=r*Math.cos(theta),y=r*Math.sin(theta);
       const age=clamp(local.progress-n,0,1),spawn=age*age*(3-2*age);
       if(spawn<=0)continue;
       const shimmer=1-local.flicker*.12*(.5+.5*Math.sin(n*12.9898+time*19))*Math.max(0,1-age);
@@ -901,24 +938,26 @@ function presentationMotion(angle,duration){
 }
 function stepPetalMotion(state,dt){
   const motion=state.motion;if(!motion||motion.paused||motion.phase==='idle')return;
-  if(motion.phase==='hold'){
-    state.currentAngle=120;state.targetAngle=120;state.angleVelocity=0;
-    motion.elapsed+=dt;
-    if(motion.elapsed>=motion.holdDuration){motion.phase='advance';motion.elapsed-=motion.holdDuration;motion.from=120}
-    return;
-  }
-  motion.elapsed+=dt;
-  const returning=motion.phase==='return',destination=returning?120:GOLDEN_ANGLE;
-  const duration=returning?motion.returnDuration:motion.phase==='run'?motion.duration:motion.advanceDuration;
-  const fraction=clamp(motion.elapsed/Math.max(.01,duration),0,1);
   const previous=state.currentAngle;
-  state.currentAngle=lerp(motion.from,destination,calmProgress(fraction));
+  let remaining=dt;
+  while(motion.phase!=='idle'){
+    const phase=motion.phase;
+    const duration=phase==='return'?motion.returnDuration:phase==='hold'?motion.holdDuration:phase==='run'?motion.duration:motion.advanceDuration;
+    const travel=Math.min(remaining,Math.max(0,duration-motion.elapsed));
+    motion.elapsed+=travel;remaining-=travel;
+    if(phase==='hold')state.currentAngle=120;
+    else state.currentAngle=lerp(motion.from,phase==='return'?120:GOLDEN_ANGLE,calmProgress(motion.elapsed/Math.max(.01,duration)));
+    if(motion.elapsed<duration-1e-9)break;
+    motion.elapsed=duration;
+    if(phase!=='hold')state.currentAngle=phase==='return'?120:GOLDEN_ANGLE;
+    if(phase==='return'){motion.phase='hold';motion.elapsed=0;motion.from=120}
+    else if(phase==='hold'){motion.phase='advance';motion.elapsed=0;motion.from=120}
+    else {motion.phase='idle';state.playing=false}
+    if(remaining<=0)break;
+  }
   state.targetAngle=state.currentAngle;
   state.angleVelocity=dt>0?(state.currentAngle-previous)/dt:0;
-  if(fraction>=1){
-    state.currentAngle=destination;state.targetAngle=destination;state.angleVelocity=0;
-    if(returning){motion.phase='hold';motion.elapsed=0}else{motion.phase='idle';state.playing=false}
-  }
+  if(motion.phase==='idle'||motion.phase==='hold')state.angleVelocity=0;
 }
 
 function createPetals({canvas,state,workspace,preview=false}){
@@ -944,14 +983,14 @@ function createPetals({canvas,state,workspace,preview=false}){
     playback.append(actions([['Animate',startDemo,'primary'],['Replay',startDemo]]));
     panel.append(playback);
     const details=document.createElement('details');details.className='advanced-settings';
-    details.innerHTML='<summary>Settings <span>FORM / LIGHT</span></summary>';
+    details.innerHTML='<summary>Settings <span>FORM / LIGHT / DISPLAY</span></summary>';
     const form=section('03 / Flower Form');
     form.append(rangeControl('Petal Length',state.petalLength,80,280,1,v=>state.petalLength=v,v=>v+' u').el);
     form.append(rangeControl('Petal Width',state.petalWidth,8,70,1,v=>state.petalWidth=v,v=>v+' u').el);
     form.append(rangeControl('Center Radius',state.centerRadius,5,35,1,v=>state.centerRadius=v,v=>v+' u').el);
     form.append(rangeControl('Glow Strength',state.glow,0,1,.01,v=>state.glow=v,v=>Math.round(v*100)+'%').el);
     form.append(rangeControl('Rotation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>v.toFixed(1)+'×').el);
-    details.append(form);panel.append(details);
+    details.append(form,gridControl(state));panel.append(details);
   }
   return {dispose(){overlay?.remove();workspace?.stage.classList.remove('has-angle-control')},update(dt,time){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
@@ -973,7 +1012,7 @@ function createPetals({canvas,state,workspace,preview=false}){
     const proximity=Math.exp(-Math.pow(Math.abs(angle-GOLDEN_ANGLE)/5.5,2));
     if(preview)pulse=proximity*(.5+.5*Math.sin(time*2.8));
     else {const atGolden=proximity>.997;if(atGolden&&!wasGolden)state.goldenPulse=1;wasGolden=atGolden;state.goldenPulse*=Math.exp(-dt*3.2);pulse=proximity*state.goldenPulse;}
-    clear(ctx,w,h);grid(ctx,w,h,preview?48:54);
+    surface.background(w,h,preview?48:54,state.showGrid);
     drawFlower(ctx,w,h,proximity,{count,angle,length:preview?180:state.petalLength,width:preview?35:state.petalWidth,center:preview?16:state.centerRadius,glow,rotation,pulse,preview});
     if(!preview){slider.update(proximity);status.textContent=Math.abs(angle-GOLDEN_ANGLE)<.055?'φ  GOLDEN ANGLE':`ANGLE / ${angle.toFixed(1)}°`;}
   }};
@@ -996,7 +1035,7 @@ function ratio(index){const numerator=fib(index),denominator=fib(index-1),scaled
   return {numerator,denominator,decimal,closeness};
 }
 function previewDraw(ctx,w,h,time){
-  clear(ctx,w,h);grid(ctx,w,h,46);ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
+  ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(let k=-3;k<=3;k++){const index=Math.round(pos)+k;if(index<2)continue;const d=index-pos;ctx.globalAlpha=Math.max(0,1-Math.abs(d)*.25);ctx.fillStyle=Math.abs(d)<.5?'#f2ce78':'#a8a198';ctx.font=`${Math.round(24-Math.abs(d)*3)}px 'DM Mono',monospace`;ctx.fillText(short(fib(index),12),0,d*45)}
   ctx.globalAlpha=1;ctx.strokeStyle='#a7803a';ctx.beginPath();ctx.moveTo(-70,-24);ctx.lineTo(70,-24);ctx.moveTo(-70,24);ctx.lineTo(70,24);ctx.stroke();ctx.restore();
@@ -1035,7 +1074,7 @@ function animateEquation(stage,slots,values,direction){
   });
 }
 function createMechanics({canvas,state,workspace,preview=false}){
-  if(preview){const surface=canvasSurface(canvas);return {update(dt,time){const {ctx,width:w,height:h}=surface.resize();if(w>1&&h>1)previewDraw(ctx,w,h,time)}}}
+  if(preview){const surface=canvasSurface(canvas);return {update(dt,time){const {ctx,width:w,height:h}=surface.resize();if(w>1&&h>1){surface.background(w,h,46);previewDraw(ctx,w,h,time)}}}}
   const body=workspace.body;body.classList.add('mechanics-body');
   const panel=workspace.panel,stage=document.createElement('div');stage.className='mechanics-stage';
   stage.innerHTML=`<div class="mechanics-roller-section"><div><h3>01 / THE SEQUENCE</h3><div class="wheel-wrap" tabindex="0" role="slider" aria-label="Fibonacci number wheel" aria-valuemin="2" aria-valuemax="10000"><div class="wheel-items"></div><div class="wheel-center"></div></div></div><div class="ratio-display"><div class="ratio-label">CONSECUTIVE RATIO</div><div class="ratio-fraction"></div><div class="ratio-value"></div><div class="phi-reference">φ ≈ 1.6180339887…</div><div class="ratio-note">The ratio converges toward φ. Every finite ratio remains an approximation.</div></div></div><div class="recurrence-section"><h3>02 / THE RECURRENCE</h3><div class="equation-stage"><span class="eq-slot result"></span><span class="eq-operator">=</span><span class="eq-slot previous"></span><span class="eq-operator">+</span><span class="eq-slot before"></span></div><div class="recurrence-caption">Fₙ = Fₙ₋₁ + Fₙ₋₂</div></div>`;
@@ -1083,9 +1122,10 @@ function createMechanics({canvas,state,workspace,preview=false}){
   refresh(true);
   return {dispose(){events.abort();stage.remove();body.classList.remove('mechanics-body')},update(dt,time){
     if(!dragging){
-      if(state.playing&&time>state.manualUntil&&Math.abs(state.velocity)<.2){state.autoTimer+=dt*state.speed;if(state.autoTimer>1.18){state.autoTimer=0;state.velocity=3.3}}
-      if(Math.abs(state.velocity)>.55){state.position+=state.velocity*dt;state.velocity*=Math.exp(-3.25*dt)}
-      else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.23,dt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
+      const physicsDt=Math.min(dt,.05);
+      if(state.playing&&time>state.manualUntil&&Math.abs(state.velocity)<.2){state.autoTimer+=dt*state.speed;if(state.autoTimer>=1.18){state.autoTimer%=1.18;state.velocity=3.3}}
+      if(Math.abs(state.velocity)>.55){const decay=Math.exp(-3.25*physicsDt);state.position+=state.velocity*(1-decay)/3.25;state.velocity*=decay}
+      else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.23,physicsDt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
       state.position=clamp(state.position,2,MAX_INDEX);if(state.position===2||state.position===MAX_INDEX)state.velocity=0;
     }
     refresh();if(equation.clientWidth!==lastEquationWidth)fitNumbers();const nearest=Math.round(state.position);
@@ -1113,6 +1153,7 @@ const overview=createOverview(open);const workspace=createWorkspace(close);app.a
 const factories={fibonacci:createFibonacci,phyllotaxis:createPhyllotaxis,petals:createPetals,mechanics:createMechanics};
 let activeInstance=null;let active=null,originCard=null,transitioning=false;
 const previewInstances=Object.fromEntries(experiments.map(item=>[item.id,factories[item.id]({canvas:overview.canvases[item.id],state:state[item.id],preview:true})]));
+const previews=Object.values(previewInstances);
 const pascal=createPascalHero(overview.pascalRegion,overview.pascalCanvas);
 for(const control of document.querySelectorAll('[data-appearance-toggle]')){
   control.addEventListener('click',()=>{
@@ -1174,10 +1215,10 @@ function close(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&active)close()});
 let fps=60,debugEl=null;
 if(DEBUG){debugEl=document.createElement('div');debugEl.className='debug';workspace.el.append(debugEl)}
-loop((dt,time,frame)=>{
+loop((dt,time)=>{
   updateAppearance(dt);
   fps += ((1/Math.max(dt,.001))-fps)*.04;
-  if(!active){pascal.update(dt);if(frame%2===0)for(const instance of Object.values(previewInstances))instance.update(dt*2,time)}
+  if(!active){pascal.update(dt);for(const instance of previews)instance.update(dt,time)}
   if(active&&workspace.el.classList.contains('visible'))activeInstance?.update(dt,time);
   if(DEBUG&&active){const s=state[active];debugEl.textContent=`FPS ${fps.toFixed(0)}\n${active==='petals'||active==='phyllotaxis'?`ANGLE ${(s.currentAngle??s.angle).toFixed(3)}\nTARGET ${s.targetAngle.toFixed(3)}\nVELOCITY ${(s.angleVelocity??0).toFixed(3)}`:active==='mechanics'?`INDEX ${s.activeIndex}\nPOSITION ${s.position.toFixed(3)}\nVELOCITY ${s.velocity.toFixed(3)}`:`STEP ${s.progress.toFixed(2)}\nCAMERA ${activeInstance?.cameraScale?.toExponential(2)??''}`}`}
 });

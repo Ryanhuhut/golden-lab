@@ -14,6 +14,7 @@ const overview=createOverview(open);const workspace=createWorkspace(close);app.a
 const factories={fibonacci:createFibonacci,phyllotaxis:createPhyllotaxis,petals:createPetals,mechanics:createMechanics};
 let activeInstance=null;let active=null,originCard=null,transitioning=false;
 const previewInstances=Object.fromEntries(experiments.map(item=>[item.id,factories[item.id]({canvas:overview.canvases[item.id],state:state[item.id],preview:true})]));
+const previews=Object.values(previewInstances);
 const pascal=createPascalHero(overview.pascalRegion,overview.pascalCanvas);
 for(const control of document.querySelectorAll('[data-appearance-toggle]')){
   control.addEventListener('click',()=>{
@@ -75,10 +76,10 @@ function close(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&active)close()});
 let fps=60,debugEl=null;
 if(DEBUG){debugEl=document.createElement('div');debugEl.className='debug';workspace.el.append(debugEl)}
-loop((dt,time,frame)=>{
+loop((dt,time)=>{
   updateAppearance(dt);
   fps += ((1/Math.max(dt,.001))-fps)*.04;
-  if(!active){pascal.update(dt);if(frame%2===0)for(const instance of Object.values(previewInstances))instance.update(dt*2,time)}
+  if(!active){pascal.update(dt);for(const instance of previews)instance.update(dt,time)}
   if(active&&workspace.el.classList.contains('visible'))activeInstance?.update(dt,time);
   if(DEBUG&&active){const s=state[active];debugEl.textContent=`FPS ${fps.toFixed(0)}\n${active==='petals'||active==='phyllotaxis'?`ANGLE ${(s.currentAngle??s.angle).toFixed(3)}\nTARGET ${s.targetAngle.toFixed(3)}\nVELOCITY ${(s.angleVelocity??0).toFixed(3)}`:active==='mechanics'?`INDEX ${s.activeIndex}\nPOSITION ${s.position.toFixed(3)}\nVELOCITY ${s.velocity.toFixed(3)}`:`STEP ${s.progress.toFixed(2)}\nCAMERA ${activeInstance?.cameraScale?.toExponential(2)??''}`}`}
 });

@@ -81,6 +81,7 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radiu
 .toggle-control input:checked+.toggle-track{background:#88652f}
 .toggle-control input:checked+.toggle-track:after{background:#ffe2a0;transform:translateX(14px)}
 .toggle-control input:focus-visible+.toggle-track{outline:2px solid var(--gold);outline-offset:3px}
+.toggle-state{margin-left:auto;margin-right:10px;color:var(--gold);font:10px var(--mono);letter-spacing:.08em}
 
 .angle-control{margin:17px 0 30px;--angle-glow:0}
 .angle-readout{font:16px var(--mono);color:var(--gold-bright);font-variant-numeric:tabular-nums}

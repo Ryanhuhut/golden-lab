@@ -11,6 +11,7 @@ const [{buildSquares,arcData},{phyllotaxisPoint},{fib,ratio},{smoothDamp,GOLDEN_
   import('../src/experiments/petals.js')
 ]);
 const {setAppearance,updateAppearance,canvasBackground}=await import('../src/core/theme.js');
+const {canvasSurface}=await import('../src/core/canvas.js');
 
 test('Fibonacci squares follow the sequence and stay adjacent',()=>{
   const squares=buildSquares(100);
@@ -76,6 +77,22 @@ test('Pascal renderer keeps one apex and reveals cached row bands through the sa
   assert.equal(hero.time,0);assert.equal(hero.cameraScale,1);
   globalThis.window=previousWindow;globalThis.OffscreenCanvas=previousOffscreen;
 });
+test('Pascal zoom reaches the same camera position at different display rates',()=>{
+  const previousWindow=globalThis.window,previousOffscreen=globalThis.OffscreenCanvas;
+  globalThis.window={devicePixelRatio:1};
+  globalThis.OffscreenCanvas=class {constructor(width,height){this.width=width;this.height=height}getContext(){return {setTransform(){},fillRect(){}}}};
+  const context={setTransform(){},save(){},restore(){},translate(){},scale(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},fillRect(){},strokeRect(){},fillText(){},drawImage(){}};
+  const scales=[];
+  for(const rate of [60,90,120,144]){
+    const canvas={width:0,height:0,getBoundingClientRect(){return {width:360,height:235}},getContext(){return context}};
+    const hero=createPascalHero(null,canvas,{interactive:false});hero.setTarget(true);
+    for(let i=0;i<rate*5;i++)hero.update(1/rate);
+    scales.push(hero.cameraScale);
+  }
+  assert.ok(scales.every(scale=>scale<1&&scale>.0115));
+  assert.ok(Math.max(...scales)-Math.min(...scales)<.001);
+  globalThis.window=previousWindow;globalThis.OffscreenCanvas=previousOffscreen;
+});
 test('phyllotaxis uses the golden angle formula',()=>{
   const p=phyllotaxisPoint(100,GOLDEN_ANGLE,7.5);
   const theta=100*GOLDEN_ANGLE*Math.PI/180;
@@ -118,6 +135,43 @@ test('petal run and long presentation keep a calm cadence and exact destination'
   for(let i=0;i<2400;i++){stepPetalMotion(calm,dt);if([600,1200,1800].includes(i))samples.push(calm.currentAngle)}
   assert.ok(Math.abs((samples[1]-samples[0])-(samples[2]-samples[1]))<.2);
   assert.equal(calm.currentAngle,GOLDEN_ANGLE);
+});
+test('scripted petal timing and damped camera positions agree at 60, 90, 120, and 144 Hz',()=>{
+  const samples=[];
+  for(const rate of [60,90,120,144]){
+    const petals={currentAngle:120,targetAngle:120,angleVelocity:0,motion:presentationMotion(120,10),playing:true};
+    let camera=1,velocity=0;
+    const record=[];let elapsed=0;
+    for(const marker of [2.5,6.25,10]){
+      while(elapsed<marker-1e-10){const dt=Math.min(1/rate,marker-elapsed);stepPetalMotion(petals,dt);const next=smoothDamp(camera,.0115,velocity,.42,dt);camera=next.value;velocity=next.velocity;elapsed+=dt}
+      record.push([petals.currentAngle,camera,petals.motion.phase]);
+    }
+    samples.push(record);
+  }
+  for(const run of samples){
+    assert.equal(run[2][0],GOLDEN_ANGLE);assert.equal(run[2][2],'idle');
+    for(let i=0;i<3;i++){
+      assert.ok(Math.abs(run[i][0]-samples[0][i][0])<1e-8);
+      assert.ok(Math.abs(run[i][1]-samples[0][i][1])<.0005);
+    }
+  }
+});
+test('stage grid cache draws static geometry once and OFF clears it completely',()=>{
+  const previousWindow=globalThis.window,previousOffscreen=globalThis.OffscreenCanvas;
+  globalThis.window={devicePixelRatio:1};
+  let strokes=0,images=0,clears=0;
+  const layer={setTransform(){},fillRect(){},save(){},restore(){},beginPath(){},moveTo(){},lineTo(){},stroke(){strokes++}};
+  globalThis.OffscreenCanvas=class {constructor(w,h){this.width=w;this.height=h}getContext(){return layer}};
+  const ctx={setTransform(){},drawImage(){images++},fillRect(){clears++}};
+  const canvas={width:0,height:0,getBoundingClientRect(){return {width:320,height:240}},getContext(){return ctx}};
+  const surface=canvasSurface(canvas);surface.resize();
+  surface.background(320,240,54,true);const initialStrokes=strokes;
+  for(let i=0;i<120;i++)surface.background(320,240,54,true);
+  assert.ok(initialStrokes>0);assert.equal(strokes,initialStrokes);assert.equal(images,121);
+  surface.background(320,240,54,false);
+  assert.equal(images,121);assert.equal(strokes,initialStrokes);assert.equal(clears,1);
+  surface.background(320,240,54,true);assert.equal(strokes,initialStrokes);
+  globalThis.window=previousWindow;globalThis.OffscreenCanvas=previousOffscreen;
 });
 test('appearance eases from graphite to true black and back',()=>{
   const previous=globalThis.document;

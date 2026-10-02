@@ -1,6 +1,6 @@
 import { clamp, easeInOutCubic, smoothDamp, TAU, reducedMotion } from '../core/animation.js';
-import { canvasSurface, clear, grid } from '../core/canvas.js';
-import { actions, numberControl, rangeControl, section, toggleControl } from '../ui/controls.js';
+import { canvasSurface } from '../core/canvas.js';
+import { actions, gridSettings, numberControl, rangeControl, section, toggleControl } from '../ui/controls.js';
 import { canvasBackground } from '../core/theme.js';
 
 export function buildSquares(count){
@@ -57,6 +57,7 @@ export function createFibonacci({canvas,state,workspace,preview=false}){
   const surface=canvasSurface(canvas),local=preview?{steps:8,speed:.75,lineWidth:1,direction:'clockwise',showSquares:true,showSpiral:true,showNumbers:false,playing:true,progress:0}:state;
   let squares=buildSquares(local.steps),camera={x:{value:.5,velocity:0},y:{value:.5,velocity:0},scale:{value:1,velocity:0}},previewCover=0,cameraInitialized=false;
   function resetTimeline(play){local.progress=0;local.playing=play;camera.x={value:.5,velocity:0};camera.y={value:.5,velocity:0};camera.scale={value:Math.max(1,Math.min(surface.width,surface.height)*.73),velocity:0};cameraInitialized=true}
+  function dampCamera(axis,target,dt){const next=smoothDamp(axis.value,target,axis.velocity,reducedMotion?.08:.42,dt);axis.value=next.value;axis.velocity=next.velocity}
   if(!preview){const panel=workspace.panel,geometry=section('01 / Sequence');
     geometry.append(numberControl('Steps',state.steps,1,100,1,v=>{state.steps=v;squares=buildSquares(v);state.progress=Math.min(state.progress,v)}).el);
     geometry.append(rangeControl('Animation Speed',state.speed,.1,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);
@@ -64,20 +65,18 @@ export function createFibonacci({canvas,state,workspace,preview=false}){
     const direction=document.createElement('div');direction.className='control';direction.innerHTML='<span class="control-label">Direction</span><div class="actions"><button class="button" type="button" data-dir="clockwise">Clockwise</button><button class="button" type="button" data-dir="counterclockwise">Counterclockwise</button></div>';
     for(const b of direction.querySelectorAll('button')){b.addEventListener('click',()=>{state.direction=b.dataset.dir;sync()})}function sync(){for(const b of direction.querySelectorAll('button'))b.classList.toggle('primary',b.dataset.dir===state.direction)}sync();geometry.append(direction);panel.append(geometry);
     const layers=section('02 / Layers');for(const [label,key] of [['Squares','showSquares'],['Spiral','showSpiral'],['Numbers','showNumbers']])layers.append(toggleControl(label,state[key],v=>state[key]=v).el);panel.append(layers);
-    const playback=section('03 / Timeline');playback.append(actions([['Run',()=>{if(state.progress>=state.steps)resetTimeline(true);else state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>resetTimeline(false)],['Replay',()=>resetTimeline(true)]]));panel.append(playback);
+    const playback=section('03 / Timeline');playback.append(actions([['Run',()=>{if(state.progress>=state.steps)resetTimeline(true);else state.playing=true},'primary'],['Pause',()=>state.playing=false],['Reset',()=>resetTimeline(false)],['Replay',()=>resetTimeline(true)]]));panel.append(playback,gridSettings(state));
   }
   return {get cameraScale(){return camera.scale.value},update(dt){
     const {ctx,width:w,height:h}=surface.resize();if(w<2||h<2)return;
-    if(local.playing){local.progress+=dt*local.speed*1.1;if(local.progress>=local.steps){if(preview){resetTimeline(true);previewCover=1}else{local.progress=local.steps;local.playing=false}}}
+    if(local.playing){local.progress+=dt*local.speed*1.1;if(local.progress>=local.steps){if(preview){const remainder=local.progress%local.steps;resetTimeline(true);local.progress=remainder;previewCover=1}else{local.progress=local.steps;local.playing=false}}}
     const progress=clamp(local.progress,0,local.steps),visible=Math.max(1,Math.min(squares.length,Math.ceil(progress)));
     const b=extent(squares,visible),bw=Math.max(1,b.maxX-b.minX),bh=Math.max(1,b.maxY-b.minY);
     const targetScale=Math.min(w/bw,h/bh)*(preview?.71:.73);
     const targetX=(b.minX+b.maxX)/2,targetY=(b.minY+b.maxY)/2;
     if(!cameraInitialized){camera.x.value=targetX;camera.y.value=targetY;camera.scale.value=targetScale;cameraInitialized=true}
-    for(const [axis,target] of [['x',targetX],['y',targetY],['scale',targetScale]]){
-      const next=smoothDamp(camera[axis].value,target,camera[axis].velocity,reducedMotion?.08:.42,dt);camera[axis].value=next.value;camera[axis].velocity=next.velocity;
-    }
-    clear(ctx,w,h);grid(ctx,w,h,preview?44:54);
+    dampCamera(camera.x,targetX,dt);dampCamera(camera.y,targetY,dt);dampCamera(camera.scale,targetScale,dt);
+    surface.background(w,h,preview?44:54,state.showGrid);
     draw(ctx,w,h,squares,progress,camera,local);
     if(preview){const closing=clamp((progress-(local.steps-.35))/.35,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.globalAlpha=Math.max(closing,previewCover);ctx.fillStyle=canvasBackground();ctx.fillRect(0,0,w,h);ctx.globalAlpha=1}
   }};

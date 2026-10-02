@@ -1,3 +1,5 @@
+import { canvasBackground } from './theme.js';
+
 export function canvasSurface(canvas) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let width = 0, height = 0, ratio = 1;
@@ -14,7 +16,7 @@ export function canvasSurface(canvas) {
   return { ctx, resize, get width(){return width}, get height(){return height} };
 }
 
-export function clear(ctx,w,h) { ctx.fillStyle='#050505'; ctx.fillRect(0,0,w,h); }
+export function clear(ctx,w,h) { ctx.fillStyle=canvasBackground(); ctx.fillRect(0,0,w,h); }
 export function grid(ctx,w,h, spacing=48) {
   ctx.save(); ctx.strokeStyle='rgba(255,255,255,.032)'; ctx.lineWidth=1;
   for(let x=w/2%spacing; x<w; x+=spacing){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}

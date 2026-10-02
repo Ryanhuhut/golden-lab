@@ -1,6 +1,7 @@
 import { clamp, easeInOutCubic, smoothDamp, TAU, reducedMotion } from '../core/animation.js';
 import { canvasSurface, clear, grid } from '../core/canvas.js';
 import { actions, numberControl, rangeControl, section, toggleControl } from '../ui/controls.js';
+import { canvasBackground } from '../core/theme.js';
 
 export function buildSquares(count){
   const values=[1n,1n];for(let i=2;i<count;i++)values.push(values[i-1]+values[i-2]);
@@ -19,9 +20,10 @@ export function buildSquares(count){
   return squares;
 }
 function extent(squares,visible){let b={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};for(let i=0;i<visible;i++){const s=squares[i];b.minX=Math.min(b.minX,s.x);b.minY=Math.min(b.minY,s.y);b.maxX=Math.max(b.maxX,s.x+s.size);b.maxY=Math.max(b.maxY,s.y+s.size)}return b;}
-function arcData(s){
+export function arcData(s){
   const {x,y,size:r,dir}=s;
-  if(dir==='seed')return {cx:x,cy:y+r,start:-Math.PI/2,end:0};
+  // The two 1×1 arcs share a center, making their tangents continuous.
+  if(dir==='seed')return {cx:x+r,cy:y,start:Math.PI,end:Math.PI/2};
   if(dir==='right')return {cx:x,cy:y,start:Math.PI/2,end:0};
   if(dir==='up')return {cx:x,cy:y+r,start:0,end:-Math.PI/2};
   if(dir==='left')return {cx:x+r,cy:y+r,start:-Math.PI/2,end:-Math.PI};
@@ -39,14 +41,14 @@ function draw(ctx,w,h,squares,progress,camera,settings){
     let x=px,y=py,sw=sz,sh=sz;
     if(i===complete){if(s.dir==='right'){sw=sz*p}else if(s.dir==='left'){sw=sz*p;x=px+sz-sw}else if(s.dir==='up'){sh=sz*p;y=py+sz-sh}else if(s.dir==='down'){sh=sz*p}else{sw=sz*p;sh=sz*p;x=px+(sz-sw)/2;y=py+(sz-sh)/2}}
     if(settings.showSquares){
-      ctx.fillStyle=i%2?'rgba(198,145,55,.066)':'rgba(230,177,79,.043)';ctx.fillRect(x,y,sw,sh);
-      ctx.strokeStyle=`rgba(224,177,94,${.44+.33*p})`;ctx.lineWidth=settings.lineWidth;ctx.strokeRect(x+.5,y+.5,Math.max(0,sw-1),Math.max(0,sh-1));
+      ctx.fillStyle=i%2?'rgba(240,240,240,.038)':'rgba(240,240,240,.024)';ctx.fillRect(x,y,sw,sh);
+      ctx.strokeStyle=`rgba(240,240,240,${.48+.35*p})`;ctx.lineWidth=settings.lineWidth;ctx.strokeRect(x+.5,y+.5,Math.max(0,sw-1),Math.max(0,sh-1));
     }
     if(settings.showSpiral&&sz>1){
       const a=arcData(s);ctx.beginPath();ctx.arc(toX(a.cx),toY(a.cy),sz,a.start,a.start+(a.end-a.start)*p,a.end<a.start);
       ctx.strokeStyle='#f7cb70';ctx.lineWidth=Math.max(1.2,settings.lineWidth*1.55);ctx.shadowColor='#e6ac48';ctx.shadowBlur=sz>8?10:0;ctx.stroke();ctx.shadowBlur=0;
     }
-    if(settings.showNumbers&&sz>37&&p>.65){ctx.save();if(settings.direction==='counterclockwise'){ctx.translate(w,0);ctx.scale(-1,1)}ctx.font=`${Math.min(25,Math.max(10,sz*.18))}px 'DM Mono',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,233,187,.78)';const cx=px+sz/2,cy=py+sz/2;ctx.fillText(s.value.toString(),settings.direction==='counterclockwise'?w-cx:cx,cy,Math.max(10,sz*.92));ctx.restore()}
+    if(settings.showNumbers&&sz>37&&p>.65){ctx.save();if(settings.direction==='counterclockwise'){ctx.translate(w,0);ctx.scale(-1,1)}ctx.font=`${Math.min(25,Math.max(10,sz*.18))}px 'DM Mono',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(245,245,245,.84)';const cx=px+sz/2,cy=py+sz/2;ctx.fillText(s.value.toString(),settings.direction==='counterclockwise'?w-cx:cx,cy,Math.max(10,sz*.92));ctx.restore()}
     ctx.restore();
   }
   ctx.restore();
@@ -77,6 +79,6 @@ export function createFibonacci({canvas,state,workspace,preview=false}){
     }
     clear(ctx,w,h);grid(ctx,w,h,preview?44:54);
     draw(ctx,w,h,squares,progress,camera,local);
-    if(preview){const closing=clamp((progress-(local.steps-.35))/.35,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.fillStyle=`rgba(5,5,5,${Math.max(closing,previewCover)})`;ctx.fillRect(0,0,w,h)}
+    if(preview){const closing=clamp((progress-(local.steps-.35))/.35,0,1);previewCover=Math.max(0,previewCover-dt*1.6);ctx.globalAlpha=Math.max(closing,previewCover);ctx.fillStyle=canvasBackground();ctx.fillRect(0,0,w,h);ctx.globalAlpha=1}
   }};
 }

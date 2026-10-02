@@ -4,9 +4,11 @@ import path from 'node:path';
 const root=path.resolve(import.meta.dirname,'..');
 const order=[
   'src/core/animation.js',
+  'src/core/theme.js',
   'src/core/canvas.js',
   'src/ui/controls.js',
   'src/ui/slider.js',
+  'src/ui/pascal.js',
   'src/state.js',
   'src/ui/overview.js',
   'src/ui/workspace.js',

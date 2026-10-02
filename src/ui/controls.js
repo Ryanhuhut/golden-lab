@@ -23,9 +23,11 @@ export function rangeControl(label,value,min,max,step,onChange,formatter=v=>Stri
   const name=document.createElement('span'); name.className='control-label'; name.textContent=label;
   const readout=document.createElement('span'); readout.className='control-value'; readout.textContent=formatter(value);
   const input=document.createElement('input'); input.type='range'; input.min=min;input.max=max;input.step=step;input.value=value;input.setAttribute('aria-label',label);
-  input.addEventListener('input',()=>{const v=clamp(Number(input.value),min,max);readout.textContent=formatter(v);onChange(v)});
+  const showProgress=v=>input.style.setProperty('--range-percent',`${(v-min)/(max-min)*100}%`);
+  showProgress(value);
+  input.addEventListener('input',()=>{const v=clamp(Number(input.value),min,max);readout.textContent=formatter(v);showProgress(v);onChange(v)});
   top.append(name,readout);wrap.append(top,input);
-  return {el:wrap,set(v){input.value=v;readout.textContent=formatter(v)}};
+  return {el:wrap,set(v){input.value=v;readout.textContent=formatter(v);showProgress(v)}};
 }
 export function toggleControl(label,value,onChange){
   const wrap=document.createElement('label'); wrap.className='toggle-control'; const text=document.createElement('span');text.textContent=label;

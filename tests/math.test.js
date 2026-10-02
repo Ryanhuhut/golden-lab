@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 globalThis.matchMedia = () => ({matches:false});
-const [{buildSquares,arcData},{phyllotaxisPoint},{fib,ratio},{smoothDamp,GOLDEN_ANGLE},{pascalRows,isOddPascal},{stepPetalMotion}] = await Promise.all([
+const [{buildSquares,arcData},{phyllotaxisPoint},{fib,ratio},{smoothDamp,GOLDEN_ANGLE},{pascalRows,isOddPascal},{stepPetalMotion,presentationMotion}] = await Promise.all([
   import('../src/experiments/fibonacci.js'),
   import('../src/experiments/phyllotaxis.js'),
   import('../src/experiments/mechanics.js'),
@@ -58,16 +58,30 @@ test('damped angle converges without overshoot',()=>{
   for(let i=0;i<300;i++){const next=smoothDamp(value,GOLDEN_ANGLE,velocity,.33,1/60);value=next.value;velocity=next.velocity;assert.ok(value<=GOLDEN_ANGLE+1e-7)}
   assert.ok(Math.abs(value-GOLDEN_ANGLE)<1e-5);
 });
-test('petal run and presentation sequence reach the displayed golden angle',()=>{
-  const s={currentAngle:200,targetAngle:200,angleVelocity:0,duration:1,motion:{phase:'run',elapsed:0,from:200,paused:false},playing:true};
-  function frame(){stepPetalMotion(s,1/60);const next=smoothDamp(s.currentAngle,s.targetAngle,s.angleVelocity,.20,1/60);s.currentAngle=next.value;s.angleVelocity=next.velocity}
-  for(let i=0;i<300;i++)frame();
-  assert.equal(s.motion.phase,'idle');assert.ok(Math.abs(s.currentAngle-GOLDEN_ANGLE)<.001);
-  s.motion={phase:'return',elapsed:0,from:s.currentAngle,paused:false};s.playing=true;
-  let sawReturn=false,sawAdvance=false;
-  for(let i=0;i<500;i++){frame();if(s.motion.phase==='hold')sawReturn=true;if(s.motion.phase==='advance')sawAdvance=true}
+test('petal run and long presentation keep a calm cadence and exact destination',()=>{
+  const dt=1/120;
+  const s={currentAngle:200,targetAngle:200,angleVelocity:0,duration:10,motion:{phase:'run',elapsed:0,from:200,duration:10,paused:false},playing:true};
+  for(let i=0;i<1200;i++)stepPetalMotion(s,dt);
+  assert.equal(s.motion.phase,'idle');assert.equal(s.currentAngle,GOLDEN_ANGLE);
+  s.duration=20;s.motion=presentationMotion(s.currentAngle,s.duration);s.playing=true;
+  let sawReturn=false,sawAdvance=false,advanceStarted=0;
+  for(let i=0;i<2700;i++){
+    stepPetalMotion(s,dt);
+    if(s.motion.phase==='hold')sawReturn=true;
+    if(s.motion.phase==='advance'&&!sawAdvance){sawAdvance=true;advanceStarted=i}
+    if(i===advanceStarted+240&&sawAdvance){
+      const angle=s.currentAngle;s.motion.paused=true;
+      for(let j=0;j<120;j++)stepPetalMotion(s,dt);
+      assert.equal(s.currentAngle,angle);s.motion.paused=false;
+    }
+  }
   assert.equal(sawReturn,true);assert.equal(sawAdvance,true);
-  assert.equal(s.motion.phase,'idle');assert.ok(Math.abs(s.currentAngle-GOLDEN_ANGLE)<.001);
+  assert.equal(s.motion.phase,'idle');assert.equal(s.currentAngle,GOLDEN_ANGLE);
+  const calm={currentAngle:120,targetAngle:120,angleVelocity:0,duration:20,motion:presentationMotion(120,20),playing:true};
+  const samples=[];
+  for(let i=0;i<2400;i++){stepPetalMotion(calm,dt);if([600,1200,1800].includes(i))samples.push(calm.currentAngle)}
+  assert.ok(Math.abs((samples[1]-samples[0])-(samples[2]-samples[1]))<.2);
+  assert.equal(calm.currentAngle,GOLDEN_ANGLE);
 });
 test('appearance eases from graphite to true black and back',()=>{
   const previous=globalThis.document;

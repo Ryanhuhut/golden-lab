@@ -20,17 +20,18 @@ function previewDraw(ctx,w,h,time){
   ctx.globalAlpha=1;ctx.strokeStyle='#a7803a';ctx.beginPath();ctx.moveTo(-70,-24);ctx.lineTo(70,-24);ctx.moveTo(-70,24);ctx.lineTo(70,24);ctx.stroke();ctx.restore();
   ctx.save();ctx.translate(w*.73,h*.46);ctx.textAlign='center';ctx.fillStyle='#a49a86';ctx.font="12px 'DM Mono',monospace";ctx.fillText('Fₙ / Fₙ₋₁',0,-25);ctx.fillStyle='#f1c66a';ctx.font="22px 'DM Mono',monospace";ctx.fillText('1.618…',0,11);ctx.fillStyle='#786b52';ctx.font="11px 'DM Mono',monospace";ctx.fillText('→ φ',0,37);ctx.restore();
 }
-function equationValue(text){
+function equationValue(text,maxLength=26){
   const value=document.createElement('span');
-  value.className='reel-value';value.textContent=text;
+  value.className='reel-value';value.textContent=short(text,maxLength);value.title=text;
   return value;
 }
+function slotCapacity(slot){return Math.max(8,Math.min(26,Math.floor((slot.clientWidth-8)/(11*.61))))}
 function animateEquation(stage,slots,values,direction){
   const travel=direction>=0?-1:1;
   const duration=reducedMotion?110:440;
   slots.forEach((slot,i)=>{
     const prior=slot.lastElementChild;
-    const incoming=equationValue(values[i]);
+    const incoming=equationValue(values[i],slotCapacity(slot));
     if(!prior){slot.replaceChildren(incoming);return}
     const previousTransform=getComputedStyle(prior).transform;
     const previousOpacity=getComputedStyle(prior).opacity;
@@ -59,6 +60,22 @@ export function createMechanics({canvas,state,workspace,preview=false}){
   body.insertBefore(stage,panel);const wheel=stage.querySelector('.wheel-wrap'),items=stage.querySelector('.wheel-items');
   const itemEls=Array.from({length:9},()=>{const el=document.createElement('div');el.className='wheel-item';items.append(el);return el});
   const fraction=stage.querySelector('.ratio-fraction'),value=stage.querySelector('.ratio-value'),display=stage.querySelector('.ratio-display'),slots=[...stage.querySelectorAll('.eq-slot')],equation=stage.querySelector('.equation-stage');
+  let lastEquationWidth=0;
+  function fitNumbers(){
+    const width=equation.clientWidth;if(!width)return;
+    lastEquationWidth=width;
+    slots.forEach(slot=>{
+      if(slot.children.length===1)slot.firstElementChild.textContent=short(slot.title,slotCapacity(slot));
+      const digits=slot.lastElementChild?.textContent.length||1;
+      const available=Math.max(1,slot.clientWidth-8);
+      slot.style.setProperty('--eq-font',`${Math.max(11,Math.min(54,available/(Math.max(1,digits)*.61)))}px`);
+    });
+    const fractionLength=fraction.textContent.length;
+    fraction.style.fontSize=`${Math.max(16,Math.min(44,(display.clientWidth-38)/(Math.max(1,fractionLength)*.59)))}px`;
+    const leading=value.querySelector('.ratio-leading')?.textContent.length||0;
+    const tail=value.querySelector('.ratio-tail')?.textContent.length||0;
+    value.style.fontSize=`${Math.max(22,Math.min(58,(display.clientWidth-38)/(Math.max(1,leading+tail*.52)*.58)))}px`;
+  }
   const controls=section('01 / Roller');controls.append(rangeControl('Auto Roll Speed',state.speed,.2,3,.1,v=>state.speed=v,v=>`${v.toFixed(1)}×`).el);panel.append(controls);
   const playback=section('02 / Playback');playback.append(actions([['Play',()=>{state.playing=true;state.autoTimer=0},'primary'],['Pause',()=>state.playing=false],['Reset',()=>{state.playing=false;state.position=11;state.velocity=0;state.activeIndex=11;refresh(true)}]]));panel.append(playback);
   const hint=document.createElement('p');hint.className='panel-description';hint.textContent='Drag, swipe, scroll, or use the arrow keys. The wheel keeps its momentum and settles on an exact Fibonacci term.';panel.append(hint);
@@ -72,10 +89,14 @@ export function createMechanics({canvas,state,workspace,preview=false}){
   function refresh(force=false){const index=clamp(Math.round(state.position),2,MAX_INDEX);if(!force&&index===state.activeIndex)return;
     const direction=index-state.activeIndex;state.activeIndex=index;const data=ratio(index);
     fraction.textContent=`${short(data.numerator,32)} / ${short(data.denominator,32)}`;fraction.title=`${data.numerator} / ${data.denominator}`;
-    value.textContent=data.decimal;display.style.setProperty('--ratio-glow',data.closeness.toFixed(3));
+    const leading=document.createElement('span'),tail=document.createElement('span');
+    leading.className='ratio-leading';tail.className='ratio-tail';
+    leading.textContent=data.decimal.slice(0,7);tail.textContent=data.decimal.slice(7);
+    value.replaceChildren(leading,tail);value.title=data.decimal;
+    display.style.setProperty('--ratio-glow',data.closeness.toFixed(3));
     const values=[fib(index),fib(index-1),fib(index-2)].map(String);
-    if(force||!slots[0].textContent)slots.forEach((el,i)=>el.replaceChildren(equationValue(values[i])));else animateEquation(equation,slots,values,direction);
-    slots.forEach((el,i)=>el.title=values[i]);wheel.setAttribute('aria-valuenow',String(index));wheel.setAttribute('aria-valuetext',`Fibonacci term ${index}: ${short(data.numerator,18)}`);
+    if(force||!slots[0].textContent)slots.forEach((el,i)=>el.replaceChildren(equationValue(values[i],slotCapacity(el))));else animateEquation(equation,slots,values,direction);
+    slots.forEach((el,i)=>el.title=values[i]);fitNumbers();wheel.setAttribute('aria-valuenow',String(index));wheel.setAttribute('aria-valuetext',`Fibonacci term ${index}: ${short(data.numerator,18)}`);
   }
   refresh(true);
   return {dispose(){events.abort();stage.remove();body.classList.remove('mechanics-body')},update(dt,time){
@@ -85,7 +106,7 @@ export function createMechanics({canvas,state,workspace,preview=false}){
       else {const target=Math.round(state.position),next=smoothDamp(state.position,target,state.velocity,reducedMotion?.07:.23,dt);state.position=next.value;state.velocity=next.velocity;if(Math.abs(state.position-target)<.0001&&Math.abs(state.velocity)<.001){state.position=target;state.velocity=0}}
       state.position=clamp(state.position,2,MAX_INDEX);if(state.position===2||state.position===MAX_INDEX)state.velocity=0;
     }
-    refresh();const nearest=Math.round(state.position);
+    refresh();if(equation.clientWidth!==lastEquationWidth)fitNumbers();const nearest=Math.round(state.position);
     for(let j=-4;j<=4;j++){const el=itemEls[j+4],index=nearest+j;if(index<2||index>MAX_INDEX){el.style.display='none';continue}el.style.display='flex';
       const d=index-state.position,abs=Math.abs(d);if(el.dataset.index!==String(index)){const term=fib(index);el.textContent=short(term,23);el.title=term.toString();el.dataset.index=String(index)}el.classList.toggle('active',index===state.activeIndex);
       el.style.transform=`translateY(calc(-50% + ${d*54}px)) scale(${Math.max(.58,1-abs*.105)}) rotateX(${d*-5}deg)`;el.style.opacity=String(Math.max(0,1-abs*.22));el.style.filter='blur('+Math.max(0,abs-.35)*.38+'px)';

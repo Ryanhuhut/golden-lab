@@ -1,4 +1,4 @@
-import { GOLDEN_ANGLE, TAU, clamp, smoothDamp, easeInOutCubic, lerp, reducedMotion } from '../core/animation.js';
+import { GOLDEN_ANGLE, TAU, clamp, smoothDamp, lerp, reducedMotion } from '../core/animation.js';
 import { canvasSurface, clear, grid } from '../core/canvas.js';
 import { actions, numberControl, rangeControl, section } from '../ui/controls.js';
 import { angleSlider } from '../ui/slider.js';
@@ -31,40 +31,62 @@ function drawFlower(ctx,w,h,p,{count,angle,length,width,center,glow,rotation,pul
   ctx.restore();
 }
 
+// A short velocity ramp at each end leaves the middle 86% at a steady speed.
+function calmProgress(t){
+  const edge=.07,p=clamp(t,0,1);
+  if(p<edge)return p*p/(2*edge*(1-edge));
+  if(p>1-edge)return 1-(1-p)*(1-p)/(2*edge*(1-edge));
+  return (p-edge/2)/(1-edge);
+}
+export function presentationMotion(angle,duration){
+  const total=Math.max(.8,duration);
+  const needsReturn=Math.abs(angle-120)>.001;
+  const returnDuration=needsReturn?Math.min(2.4,Math.max(.45,total*.14)):0;
+  const holdDuration=Math.min(.5,total*.08);
+  return {phase:needsReturn?'return':'hold',elapsed:0,from:angle,paused:false,returnDuration,holdDuration,advanceDuration:total-returnDuration-holdDuration};
+}
 export function stepPetalMotion(state,dt){
   const motion=state.motion;if(!motion||motion.paused||motion.phase==='idle')return;
-  if(motion.phase==='hold'){state.targetAngle=120;if(Math.abs(state.currentAngle-120)<.025&&Math.abs(state.angleVelocity)<.08)motion.elapsed+=dt;if(motion.elapsed>.38){motion.phase='advance';motion.elapsed=0;motion.from=120}return}
+  if(motion.phase==='hold'){
+    state.currentAngle=120;state.targetAngle=120;state.angleVelocity=0;
+    motion.elapsed+=dt;
+    if(motion.elapsed>=motion.holdDuration){motion.phase='advance';motion.elapsed-=motion.holdDuration;motion.from=120}
+    return;
+  }
   motion.elapsed+=dt;
   const returning=motion.phase==='return',destination=returning?120:GOLDEN_ANGLE;
-  const duration=returning?Math.min(1.1,state.duration*.45):state.duration;
-  const fraction=clamp(motion.elapsed/Math.max(.15,duration),0,1);
-  state.targetAngle=lerp(motion.from,destination,easeInOutCubic(fraction));
-  if(fraction>=1&&Math.abs(state.currentAngle-destination)<.025&&Math.abs(state.angleVelocity)<.08){
-    state.targetAngle=destination;
+  const duration=returning?motion.returnDuration:motion.phase==='run'?motion.duration:motion.advanceDuration;
+  const fraction=clamp(motion.elapsed/Math.max(.01,duration),0,1);
+  const previous=state.currentAngle;
+  state.currentAngle=lerp(motion.from,destination,calmProgress(fraction));
+  state.targetAngle=state.currentAngle;
+  state.angleVelocity=dt>0?(state.currentAngle-previous)/dt:0;
+  if(fraction>=1){
+    state.currentAngle=destination;state.targetAngle=destination;state.angleVelocity=0;
     if(returning){motion.phase='hold';motion.elapsed=0}else{motion.phase='idle';state.playing=false}
   }
 }
 
 export function createPetals({canvas,state,workspace,preview=false}){
-  const surface=canvasSurface(canvas);let slider,status,overlay,runButton;
+  const surface=canvasSurface(canvas);let slider,status,overlay,pauseButton;
   let previewAngle=120,previewClock=0,wasGolden=false;
-  function startDemo(){state.motion={phase:'return',elapsed:0,from:state.currentAngle,paused:false};state.playing=true;if(runButton)runButton.textContent='Run'}
-  function run(){if(state.motion.paused&&state.motion.phase!=='idle'){state.motion.paused=false;state.playing=true;if(runButton)runButton.textContent='Run';return}state.motion={phase:'run',elapsed:0,from:state.currentAngle,paused:false};state.playing=true;if(runButton)runButton.textContent='Run'}
-  function pause(){state.motion.paused=true;state.playing=false;if(runButton)runButton.textContent='Resume'}
-  function reset(){state.motion={phase:'idle',elapsed:0,from:state.currentAngle,paused:false};state.targetAngle=120;state.playing=false;if(runButton)runButton.textContent='Run'}
+  function startDemo(){state.motion=presentationMotion(state.currentAngle,state.duration);state.playing=true;if(pauseButton)pauseButton.textContent='Pause'}
+  function run(){state.motion={phase:'run',elapsed:0,from:state.currentAngle,duration:state.duration,paused:false};state.playing=true;if(pauseButton)pauseButton.textContent='Pause'}
+  function pause(){if(state.motion.phase==='idle')return;state.motion.paused=!state.motion.paused;state.playing=!state.motion.paused;if(pauseButton)pauseButton.textContent=state.motion.paused?'Resume':'Pause'}
+  function reset(){state.motion={phase:'idle',elapsed:0,from:state.currentAngle,paused:false};state.targetAngle=120;state.playing=false;if(pauseButton)pauseButton.textContent='Pause'}
   if(!preview){
     const panel=workspace.panel,primary=section('01 / Geometry');
     primary.append(numberControl('Petal Count',state.targetCount,1,100,1,v=>{state.targetCount=v;state.petalCount=v}).el);
     panel.append(primary);
     overlay=document.createElement('div');overlay.className='stage-angle-overlay';
-    slider=angleSlider('Angle',state,{onTarget(){state.motion.phase='idle';state.motion.paused=false;state.playing=false;if(runButton)runButton.textContent='Run'}});
+    slider=angleSlider('Angle',state,{onTarget(){state.motion.phase='idle';state.motion.paused=false;state.playing=false;if(pauseButton)pauseButton.textContent='Pause'}});
     overlay.append(slider.el);
     status=document.createElement('div');status.className='golden-status';overlay.append(status);
     workspace.stage.append(overlay);workspace.stage.classList.add('has-angle-control');
     const playback=section('02 / Motion');
-    playback.append(rangeControl('Animation Duration',state.duration,.5,8,.1,v=>state.duration=v,v=>v.toFixed(1)+' s').el);
+    playback.append(rangeControl('Animation Duration',state.duration,1,24,.5,v=>state.duration=v,v=>v.toFixed(1)+' s').el);
     const mainActions=actions([['Run',run,'primary'],['Pause',pause],['Reset',reset]]);
-    runButton=mainActions.querySelector('button');runButton.textContent=state.motion.paused?'Resume':'Run';playback.append(mainActions);
+    pauseButton=mainActions.querySelectorAll('button')[1];pauseButton.textContent=state.motion.paused?'Resume':'Pause';playback.append(mainActions);
     playback.append(actions([['Animate',startDemo,'primary'],['Replay',startDemo]]));
     panel.append(playback);
     const details=document.createElement('details');details.className='advanced-settings';
@@ -82,15 +104,16 @@ export function createPetals({canvas,state,workspace,preview=false}){
     let angle,count,rotation,glow,pulse;
     if(preview){previewClock+=dt;const phase=(previewClock%10)/10;const target=phase<.57?GOLDEN_ANGLE:120;previewAngle+=(target-previewAngle)*Math.min(1,dt*1.5);angle=previewAngle;count=15;rotation=time*.025;glow=.48;}
     else {
+      const scripted=state.motion.phase!=='idle';
       stepPetalMotion(state,dt);
-      if(!state.motion.paused){
+      if(!scripted&&!state.motion.paused){
         const next=smoothDamp(state.currentAngle,state.targetAngle,state.angleVelocity,reducedMotion?.08:.20,dt);
         state.currentAngle=next.value;state.angleVelocity=next.velocity;
         if(Math.abs(state.currentAngle-state.targetAngle)<.0003&&Math.abs(state.angleVelocity)<.003){state.currentAngle=state.targetAngle;state.angleVelocity=0;}
       }
       state.currentCount+= (state.targetCount-state.currentCount)*Math.min(1,dt*6);
       if(Math.abs(state.currentCount-state.targetCount)<.001)state.currentCount=state.targetCount;
-      if(state.playing)state.rotation+=dt*.045*state.speed;
+      if(state.playing)state.rotation+=dt*.012*state.speed;
       angle=state.currentAngle;count=state.currentCount;rotation=state.rotation;glow=state.glow;
     }
     const proximity=Math.exp(-Math.pow(Math.abs(angle-GOLDEN_ANGLE)/5.5,2));

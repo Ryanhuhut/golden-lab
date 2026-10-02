@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#050505">
   <meta name="description" content="Golden Lab — an interactive laboratory for Fibonacci and the golden angle.">
-  <title>GOLDEN LAB — Mathematical Motion</title>
+  <title>GOLDEN LAB · Numbers in Motion</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -320,6 +321,18 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border:2px solid #f0d
 .petals-playback .actions{gap:10px}
 .petals-playback .actions+.actions{margin-top:13px}
 @media(max-width:650px){.angle-mark-label{font-size:9px}.angle-mark-label.golden-caption{font-size:9px}.golden-caption small{font-size:6px}}
+
+/* Final identity and quiet, scrollable surfaces. */
+html,body,.workspace,.control-panel{scrollbar-width:none}
+html{scrollbar-gutter:auto}
+html::-webkit-scrollbar,body::-webkit-scrollbar,.workspace::-webkit-scrollbar,.control-panel::-webkit-scrollbar{display:none;width:0;height:0}
+.creator-mark{display:inline-block;margin-left:clamp(12px,2.5vw,32px);color:#8b7654;letter-spacing:.12em;font-weight:500}
+.control-panel input[type=range]::-webkit-slider-runnable-track{height:8px;border:1px solid #514939;border-radius:999px;background:linear-gradient(90deg,var(--gold) 0 var(--range-percent),#3b3934 var(--range-percent) 100%);box-shadow:inset 0 1px 2px #0009}
+.control-panel input[type=range]::-moz-range-track{height:8px;border:1px solid #514939;border-radius:999px;background:linear-gradient(90deg,var(--gold) 0 var(--range-percent),#3b3934 var(--range-percent) 100%);box-shadow:inset 0 1px 2px #0009}
+.control-panel input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-4px;border:2px solid #21190c;background:var(--gold-bright);box-shadow:0 0 0 1px #bd9144,0 2px 8px #0008}
+.control-panel input[type=range]::-moz-range-thumb{width:16px;height:16px;border:2px solid #21190c;background:var(--gold-bright);box-shadow:0 0 0 1px #bd9144,0 2px 8px #0008}
+.recurrence-caption{font-size:clamp(14px,1.35vw,18px);font-weight:500;letter-spacing:.035em;color:#c6c0b4}
+@media(max-width:650px){.footer{flex-wrap:wrap;gap:8px 14px}.creator-mark{margin-left:10px;letter-spacing:.04em}.recurrence-caption{font-size:14px}}
 
 </style>
 </head>
@@ -672,7 +685,7 @@ function createOverview(open) {
     <header class="topline"><div class="brand">GOLDEN <span>LAB</span></div><div class="topline-right"><span>INTERACTIVE MATHEMATICS / VOL. 01</span><button class="appearance-button" type="button" data-appearance-toggle aria-label="Switch to True Black background">◐ <span>GRAPHITE</span></button></div></header>
     <section class="hero"><div><div class="eyebrow">A visual laboratory of proportion</div><h1>Numbers<br>in <em>motion.</em></h1></div><div class="hero-aside"><div class="pascal-region" tabindex="0" role="button" aria-label="Reveal the Sierpiński triangle from Pascal's triangle"><canvas aria-hidden="true"></canvas><span class="pascal-caption">PASCAL → SIERPIŃSKI <span>HOVER TO REVEAL</span></span></div><p>Four experiments. One recurring idea. Explore the structures that emerge when a simple rule is allowed to move.</p></div></section>
     <div class="gallery-head"><span>SELECT AN EXPERIMENT</span><span>01 — 04</span></div><div class="gallery"></div>
-    <footer class="footer"><span>GOLDEN LAB / EST. 2026</span><span>SCROLL · SELECT · EXPLORE</span></footer>`;
+    <footer class="footer"><span>GOLDEN LAB / EST. 2026 <span class="creator-mark">Ryanhuhut</span></span><span>SCROLL · SELECT · EXPLORE</span></footer>`;
   const gallery=overview.querySelector('.gallery');const canvases={};
   for(const item of experiments){const card=document.createElement('button');card.className='experiment-card';card.type='button';card.setAttribute('aria-label',`Open ${item.name}`);card.innerHTML=`<canvas class="card-canvas" aria-hidden="true"></canvas><span class="card-index">EXPERIMENT ${item.index}</span><span class="card-symbol">${item.symbol}</span><span class="card-info"><span><h2>${item.name}</h2><p>${item.description}</p></span><span class="open-hint">OPEN EXPERIMENT <span>↗</span></span></span>`;card.addEventListener('click',()=>open(item.id,card));gallery.append(card);canvases[item.id]=card.querySelector('canvas');}
   return {el:overview,canvases,pascalRegion:overview.querySelector('.pascal-region'),pascalCanvas:overview.querySelector('.pascal-region canvas')};

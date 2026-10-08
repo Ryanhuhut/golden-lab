@@ -16,7 +16,7 @@ export function ratio(index){const numerator=fib(index),denominator=fib(index-1)
 function previewDraw(ctx,w,h,time){
   ctx.save();ctx.translate(w*.35,h*.47);const pos=9+(time*.32)%6;
   ctx.textAlign='center';ctx.textBaseline='middle';
-  for(let k=-3;k<=3;k++){const index=Math.round(pos)+k;if(index<2)continue;const d=index-pos;ctx.globalAlpha=Math.max(0,1-Math.abs(d)*.25);ctx.fillStyle=Math.abs(d)<.5?'#f2ce78':'#a8a198';ctx.font=`${Math.round(24-Math.abs(d)*3)}px 'DM Mono',monospace`;ctx.fillText(short(fib(index),12),0,d*45)}
+  for(let k=-3;k<=3;k++){const index=Math.round(pos)+k;if(index<2)continue;const d=pos-index;ctx.globalAlpha=Math.max(0,1-Math.abs(d)*.25);ctx.fillStyle=Math.abs(d)<.5?'#f2ce78':'#a8a198';ctx.font=`${Math.round(24-Math.abs(d)*3)}px 'DM Mono',monospace`;ctx.fillText(short(fib(index),12),0,d*45)}
   ctx.globalAlpha=1;ctx.strokeStyle='#a7803a';ctx.beginPath();ctx.moveTo(-70,-24);ctx.lineTo(70,-24);ctx.moveTo(-70,24);ctx.lineTo(70,24);ctx.stroke();ctx.restore();
   ctx.save();ctx.translate(w*.73,h*.46);ctx.textAlign='center';ctx.fillStyle='#a49a86';ctx.font="12px 'DM Mono',monospace";ctx.fillText('Fₙ / Fₙ₋₁',0,-25);ctx.fillStyle='#f1c66a';ctx.font="22px 'DM Mono',monospace";ctx.fillText('1.618…',0,11);ctx.fillStyle='#786b52';ctx.font="11px 'DM Mono',monospace";ctx.fillText('→ φ',0,37);ctx.restore();
 }
@@ -27,7 +27,7 @@ function equationValue(text,maxLength=26){
 }
 function slotCapacity(slot){return Math.max(8,Math.min(26,Math.floor((slot.clientWidth-8)/(11*.61))))}
 function animateEquation(stage,slots,values,direction){
-  const travel=direction>=0?-1:1;
+  const travel=direction>=0?1:-1;
   const duration=reducedMotion?110:440;
   slots.forEach((slot,i)=>{
     const prior=slot.lastElementChild;
@@ -81,11 +81,11 @@ export function createMechanics({canvas,state,workspace,preview=false}){
   const hint=document.createElement('p');hint.className='panel-description';hint.textContent='Drag, swipe, scroll, or use the arrow keys. The wheel keeps its momentum and settles on an exact Fibonacci term.';panel.append(hint);
   const events=new AbortController();let dragging=false,lastY=0,lastTime=0;
   function manual(){state.manualUntil=performance.now()/1000+2.2;state.autoTimer=0}
-  wheel.addEventListener('wheel',e=>{e.preventDefault();manual();state.velocity=clamp(state.velocity+e.deltaY*.04,-42,42)},{passive:false,signal:events.signal});
+  wheel.addEventListener('wheel',e=>{e.preventDefault();manual();state.velocity=clamp(state.velocity-e.deltaY*.04,-42,42)},{passive:false,signal:events.signal});
   wheel.addEventListener('pointerdown',e=>{dragging=true;manual();state.velocity=0;lastY=e.clientY;lastTime=performance.now();wheel.setPointerCapture(e.pointerId)},{signal:events.signal});
-  wheel.addEventListener('pointermove',e=>{if(!dragging)return;const now=performance.now(),dy=e.clientY-lastY,dt=Math.max(.008,(now-lastTime)/1000);state.position=clamp(state.position-dy/55,2,MAX_INDEX);state.velocity=clamp(-dy/55/dt,-35,35);lastY=e.clientY;lastTime=now},{signal:events.signal});
+  wheel.addEventListener('pointermove',e=>{if(!dragging)return;const now=performance.now(),dy=e.clientY-lastY,dt=Math.max(.008,(now-lastTime)/1000);state.position=clamp(state.position+dy/55,2,MAX_INDEX);state.velocity=clamp(dy/55/dt,-35,35);lastY=e.clientY;lastTime=now},{signal:events.signal});
   wheel.addEventListener('pointerup',()=>{dragging=false;if(performance.now()-lastTime>85)state.velocity*=.22},{signal:events.signal});wheel.addEventListener('pointercancel',()=>dragging=false,{signal:events.signal});
-  wheel.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)){e.preventDefault();manual();const change=e.key==='ArrowUp'?-1:e.key==='ArrowDown'?1:e.key==='PageUp'?-5:5;state.velocity=0;state.position=clamp(e.key==='Home'?2:e.key==='End'?MAX_INDEX:Math.round(state.position)+change,2,MAX_INDEX);refresh()}},{signal:events.signal});
+  wheel.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)){e.preventDefault();manual();const change=e.key==='ArrowUp'?1:e.key==='ArrowDown'?-1:e.key==='PageUp'?5:-5;state.velocity=0;state.position=clamp(e.key==='Home'?2:e.key==='End'?MAX_INDEX:Math.round(state.position)+change,2,MAX_INDEX);refresh()}},{signal:events.signal});
   function refresh(force=false){const index=clamp(Math.round(state.position),2,MAX_INDEX);if(!force&&index===state.activeIndex)return;
     const direction=index-state.activeIndex;state.activeIndex=index;const data=ratio(index);
     fraction.textContent=`${short(data.numerator,32)} / ${short(data.denominator,32)}`;fraction.title=`${data.numerator} / ${data.denominator}`;
@@ -109,7 +109,7 @@ export function createMechanics({canvas,state,workspace,preview=false}){
     }
     refresh();if(equation.clientWidth!==lastEquationWidth)fitNumbers();const nearest=Math.round(state.position);
     for(let j=-4;j<=4;j++){const el=itemEls[j+4],index=nearest+j;if(index<2||index>MAX_INDEX){el.style.display='none';continue}el.style.display='flex';
-      const d=index-state.position,abs=Math.abs(d);if(el.dataset.index!==String(index)){const term=fib(index);el.textContent=short(term,23);el.title=term.toString();el.dataset.index=String(index)}el.classList.toggle('active',index===state.activeIndex);
+      const d=state.position-index,abs=Math.abs(d);if(el.dataset.index!==String(index)){const term=fib(index);el.textContent=short(term,23);el.title=term.toString();el.dataset.index=String(index)}el.classList.toggle('active',index===state.activeIndex);
       el.style.transform=`translateY(calc(-50% + ${d*54}px)) scale(${Math.max(.58,1-abs*.105)}) rotateX(${d*-5}deg)`;el.style.opacity=String(Math.max(0,1-abs*.22));el.style.filter='blur('+Math.max(0,abs-.35)*.38+'px)';
     }
   }};
